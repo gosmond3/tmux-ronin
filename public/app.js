@@ -20,6 +20,7 @@ let active = null;
 const tiles = [];
 let ctrlArmed = false; // touch key bar: Ctrl modifier applied to the next typed char
 let keybar = null; // the touch accessory key bar element
+let compose = null; // the touch compose bar { bar, ta }
 
 const THEME = {
   background: '#0b0e14',
@@ -458,6 +459,59 @@ function handleKey(seq) {
 }
 
 /**
+ * TOUCH: a compose bar — a real native textarea where you type / dictate (Wispr Flow) /
+ * paste, then Enter or Send writes the whole line into the active terminal and runs it.
+ * Far easier than poking at xterm's hidden textarea on a phone, and paste/dictation work.
+ */
+function buildCompose() {
+  const bar = document.createElement('div');
+  bar.id = 'compose';
+
+  const ta = document.createElement('textarea');
+  ta.rows = 1;
+  ta.placeholder = 'Type, paste, or dictate — Enter sends';
+  ta.autocapitalize = 'off';
+  ta.autocomplete = 'off';
+  ta.spellcheck = false;
+  ta.setAttribute('autocorrect', 'off');
+
+  const btn = document.createElement('button');
+  btn.textContent = 'Send';
+
+  const autosize = () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(120, ta.scrollHeight) + 'px';
+  };
+  const send = () => {
+    const text = ta.value;
+    if (!text || !active) return;
+    // newlines -> CR so multi-line paste runs line by line; trailing CR submits.
+    active.sendRaw(text.replace(/\n/g, '\r') + '\r');
+    ta.value = '';
+    autosize();
+  };
+
+  ta.addEventListener('input', autosize);
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Enter sends; Shift+Enter inserts a newline
+      send();
+    }
+  });
+  btn.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the textarea focused
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    send();
+    ta.focus();
+  });
+
+  bar.appendChild(ta);
+  bar.appendChild(btn);
+  document.body.appendChild(bar);
+  compose = { bar, ta };
+}
+
+/**
  * iOS: the soft keyboard overlays the page instead of resizing it, hiding the line
  * you're typing. Track the visual viewport and shrink the app to the visible height
  * so the active terminal row stays above the keyboard (and the key bar with it).
@@ -508,7 +562,8 @@ async function init() {
   if (hostEl) hostEl.textContent = location.hostname;
   build();
   if (IS_TOUCH) {
-    buildKeybar();
+    buildCompose(); // compose bar above…
+    buildKeybar(); // …the accessory key bar (closest to the keyboard)
     setupViewport();
   }
   const saved = loadState();
