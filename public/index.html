@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0e14" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>tmux ronin</title>
+    <link rel="stylesheet" href="/vendor/xterm.css" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header id="bar">
+      <span class="brand">⛩ tmux ronin</span>
+      <span class="host" id="host"></span>
+      <span class="grow"></span>
+      <div class="layouts" role="group" aria-label="Grid layout">
+        <button data-layout="1" title="Single terminal">1</button>
+        <button data-layout="2" title="Two terminals">2</button>
+        <button data-layout="4" class="active" title="Four terminals">4</button>
+      </div>
+      <button id="refresh" title="Refresh session list">⟳</button>
+    </header>
+    <main id="grid" class="layout-4" data-layout="4"></main>
+
+    <script src="/vendor/xterm.js"></script>
+    <script src="/vendor/addon-fit.js"></script>
+    <script src="/vendor/addon-clipboard.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,269 @@
+:root {
+  --bg: #0b0e14;
+  --bg-2: #0f131c;
+  --panel: #131826;
+  --line: #1f2738;
+  --fg: #c5c8c6;
+  --muted: #6b7488;
+  --accent: #e0af68;
+  --accent-2: #81a2be;
+  --ok: #b5bd68;
+  --warn: #f0c674;
+  --bad: #cc6666;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  /* --app-h is set from visualViewport on touch so the layout shrinks above the
+     on-screen keyboard instead of being covered by it. */
+  height: var(--app-h, 100dvh);
+  overflow: hidden;
+}
+
+/* ---- top bar ---- */
+#bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+  flex: 0 0 auto;
+}
+#bar .brand {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+#bar .host {
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+#bar .grow {
+  flex: 1;
+}
+.layouts {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.layouts button {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  width: 34px;
+  height: 30px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.layouts button.active {
+  background: var(--panel);
+  color: var(--accent);
+}
+#refresh {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 8px;
+  width: 34px;
+  height: 30px;
+  font-size: 15px;
+  cursor: pointer;
+}
+#refresh:active {
+  color: var(--accent);
+}
+
+/* ---- grid ---- */
+#grid {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 6px;
+  padding: 6px;
+  min-height: 0;
+}
+#grid.layout-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+#grid.layout-2 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+#grid.layout-4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+/* ---- tile ---- */
+.tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tile.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.tile-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.tile-head .grow {
+  flex: 1;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: 0 0 auto;
+}
+.dot.on {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+.dot.wait {
+  background: var(--warn);
+}
+.dot.off {
+  background: var(--bad);
+}
+.tile-head select {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+  max-width: 60%;
+}
+.tile-head button {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 6px;
+  width: 26px;
+  height: 24px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tile-head button:active {
+  color: var(--accent);
+}
+.tile-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px 2px 2px 6px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.tile-body .xterm {
+  height: 100%;
+}
+
+/* ---- touch accessory key bar (hidden on desktop) ---- */
+#keybar {
+  display: none;
+}
+@media (pointer: coarse) {
+  .tile-head button {
+    width: 34px;
+    height: 32px;
+    font-size: 14px;
+  }
+  .tile-head select {
+    max-width: 50%;
+  }
+  #keybar {
+    display: flex;
+    gap: 5px;
+    padding: 6px 8px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    background: var(--bg-2);
+    border-top: 1px solid var(--line);
+    overflow-x: auto;
+    flex: 0 0 auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #keybar button {
+    flex: 0 0 auto;
+    min-width: 44px;
+    height: 38px;
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  #keybar button:active {
+    background: var(--line);
+  }
+  #keybar button.armed {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+}
+
+/* ---- mobile: single terminal fills the screen; 2/4 stack in a scroll column ---- */
+@media (max-width: 680px) {
+  #grid.layout-2,
+  #grid.layout-4 {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  #grid.layout-2 .tile,
+  #grid.layout-4 .tile {
+    flex: 0 0 auto;
+    height: 82dvh;
+  }
+  /* single terminal: drop the panel chrome and use the whole screen */
+  #grid.layout-1 {
+    padding: 0;
+    gap: 0;
+  }
+  #grid.layout-1 .tile {
+    border: none;
+    border-radius: 0;
+  }
+  #grid.layout-1 .tile.active {
+    box-shadow: none;
+  }
+  #grid.layout-1 .tile-body {
+    padding: 2px 0 0 4px;
+  }
+}

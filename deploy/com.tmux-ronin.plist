@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  macOS launchd agent template for tmux-ronin (use a Mac as your home server).
+  Fill the two placeholders, install, and load:
+
+    sed -e 's#__REPO_DIR__#/Users/you/tmux-ronin#' \
+        -e 's#__NODE_DIR__#'"$(dirname "$(readlink -f "$(command -v node)")")"'#' \
+        deploy/com.tmux-ronin.plist > ~/Library/LaunchAgents/com.tmux-ronin.plist
+    launchctl load -w ~/Library/LaunchAgents/com.tmux-ronin.plist
+
+  (setup.sh prints these steps for you on macOS.)
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.tmux-ronin</string>
+  <key>WorkingDirectory</key><string>__REPO_DIR__</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE_DIR__/npm</string>
+    <string>start</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>__NODE_DIR__:/usr/local/bin:/usr/bin:/bin</string>
+    <key>NODE_ENV</key><string>production</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+</dict>
+</plist>
