@@ -84,6 +84,15 @@ Serves it **tailnet-only** (real cert, not public) at `https://<your-host>.ts.ne
 - HTTPS (recommended): `https://<your-host>.ts.net:8443`
 - or plain HTTP: `http://<server-tailnet-ip>:3006`
 
+**Where do those come from?** `<your-host>.ts.net` is your server's Tailscale (MagicDNS)
+name and `<server-tailnet-ip>` is its tailnet IP. You don't have to memorize them:
+`setup.sh` prints your exact URLs when it finishes, and you can re-check anytime with:
+
+```bash
+tailscale serve status      # shows the live HTTPS URL (e.g. https://myhost.ts.net:8443)
+tailscale ip -4             # the tailnet IP, for the http://<ip>:3006 form
+```
+
 **7 — If you have no tmux sessions yet,** make one on the server (or use **➕ new
 session…** in the app), then pick it from a tile's dropdown:
 

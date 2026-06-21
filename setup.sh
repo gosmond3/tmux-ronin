@@ -74,18 +74,31 @@ else
   echo "==> No systemd/launchd detected. Start manually with: npm start"
 fi
 
+# Work out this server's URLs so you don't have to guess them.
+IP=""; FQDN=""
+if command -v tailscale >/dev/null; then
+  IP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+  FQDN="$(tailscale status --json 2>/dev/null | "$NODE_DIR/node" -e \
+    'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{process.stdout.write((JSON.parse(d).Self.DNSName||"").replace(/\.$/,""))}catch{}})' 2>/dev/null || true)"
+fi
+
 echo
 echo "Next steps:"
 echo "  1) Keep it running without an active login (Linux):"
 echo "       sudo loginctl enable-linger $USER"
 echo "  2) (Recommended) tailnet HTTPS for remote access + clipboard:"
 if command -v tailscale >/dev/null; then
-  IP="$(tailscale ip -4 2>/dev/null | head -1 || true)"
   echo "       sudo tailscale serve --bg --https=8443 http://${IP:-<tailnet-ip>}:3006"
-  echo "       -> open https://<your-host>.ts.net:8443 on your phone/laptop"
 else
   echo "       install Tailscale, then:"
   echo "       sudo tailscale serve --bg --https=8443 http://<tailnet-ip>:3006"
 fi
 echo
-echo "==> done. Local URL: http://<tailnet-ip-or-localhost>:3006"
+echo "==> done. Open one of these in a browser (HTTPS needed for clipboard):"
+if [ -n "$FQDN" ]; then
+  echo "      HTTP  (now)          : http://$FQDN:3006   (or http://$IP:3006)"
+  echo "      HTTPS (after step 2) : https://$FQDN:8443"
+else
+  echo "      HTTP  : http://${IP:-<server-ip-or-localhost>}:3006"
+  echo "      HTTPS : after step 2, run 'tailscale serve status' to see the URL"
+fi
