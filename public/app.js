@@ -376,9 +376,15 @@ class Tile {
  * Far easier than poking at xterm's hidden textarea on a phone, and paste/dictation work.
  */
 function buildCompose() {
+  // Floating "type" button — opens the compose overlay. Hidden while it's open.
+  const fab = document.createElement('button');
+  fab.id = 'fab';
+  fab.textContent = '⌨';
+  fab.title = 'Type';
+
+  // Compose overlay — floats just above the keyboard, over the terminal.
   const bar = document.createElement('div');
   bar.id = 'compose';
-
   const ta = document.createElement('textarea');
   ta.rows = 1;
   ta.placeholder = 'Type, Enter sends';
@@ -390,62 +396,70 @@ function buildCompose() {
   ta.setAttribute('enterkeyhint', 'send');
   ta.setAttribute('data-1p-ignore', ''); // suppress password-manager / autofill prompts
   ta.setAttribute('data-lpignore', 'true');
-
-  const btn = document.createElement('button');
-  btn.textContent = 'Send';
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'send';
+  sendBtn.textContent = 'Send';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'close';
+  closeBtn.textContent = '✕';
+  bar.append(ta, sendBtn, closeBtn);
 
   const autosize = () => {
     ta.style.height = 'auto';
     ta.style.height = Math.min(120, ta.scrollHeight) + 'px';
   };
-  const send = () => {
-    const text = ta.value;
-    if (!text || !active) return;
-    // newlines -> CR so multi-line paste runs line by line; trailing CR submits.
-    active.sendRaw(text.replace(/\n/g, '\r') + '\r');
+  const submit = () => {
+    if (!active) return;
+    if (ta.value) active.sendRaw(ta.value);
+    // Send Enter as a SEPARATE, slightly-delayed keypress so TUIs (e.g. Claude Code)
+    // treat it as a real submit, not a trailing newline inside pasted text.
+    setTimeout(() => active && active.sendRaw('\r'), 40);
     ta.value = '';
     autosize();
   };
+  const open = () => {
+    bar.classList.add('open');
+    fab.classList.add('hidden');
+    positionCompose();
+    ta.focus();
+    autosize();
+  };
+  const hide = () => {
+    bar.classList.remove('open');
+    fab.classList.remove('hidden');
+    ta.blur();
+  };
 
+  fab.addEventListener('click', open);
   ta.addEventListener('input', autosize);
   ta.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault(); // Enter sends; Shift+Enter inserts a newline
-      send();
+      submit();
     }
   });
-  btn.addEventListener('pointerdown', (e) => e.preventDefault()); // keep the textarea focused
-  btn.addEventListener('click', (e) => {
+  sendBtn.addEventListener('pointerdown', (e) => e.preventDefault()); // keep keyboard up
+  sendBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    send();
+    submit();
     ta.focus();
   });
+  closeBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+  closeBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    hide();
+  });
 
-  bar.appendChild(ta);
-  bar.appendChild(btn);
-  document.body.appendChild(bar);
-  compose = { bar, ta };
+  document.body.append(fab, bar);
+  compose = { bar, ta, open, hide };
 }
 
-/**
- * iOS: the soft keyboard overlays the page instead of resizing it. Shrink the app to
- * the visible height so the terminal + compose bar stay above the keyboard, and undo
- * iOS's habit of scrolling the focused field into view (which scrolled the terminal
- * off-screen and left it black).
- */
-function setupViewport() {
+/** Float the compose overlay just above the on-screen keyboard. */
+function positionCompose() {
+  if (!compose) return;
   const vv = window.visualViewport;
-  if (!vv) return;
-  const apply = () => {
-    document.documentElement.style.setProperty('--app-h', Math.round(vv.height) + 'px');
-    // Pin the app to the top of the layout viewport — counter the iOS auto-scroll.
-    window.scrollTo(0, 0);
-    if (active) active.doFit();
-    else tiles.forEach((t) => t.doFit());
-  };
-  vv.addEventListener('resize', apply);
-  vv.addEventListener('scroll', apply);
-  apply();
+  const kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+  compose.bar.style.bottom = kb + 'px';
 }
 
 /* ---------- layout ---------- */
@@ -473,16 +487,26 @@ function build() {
   });
   document.getElementById('refresh').addEventListener('click', fetchSessions);
   window.addEventListener('resize', () => tiles.forEach((t) => t.doFit()));
+  // Top-bar control keys (sent to the active terminal).
+  const key = (id, fn) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', fn);
+  };
+  key('k-esc', () => active && active.sendRaw('\x1b'));
+  key('k-int', () => active && active.sendRaw('\x03'));
+  key('k-bottom', () => {
+    if (active) for (let i = 0; i < 40; i++) active.sendRaw(WHEEL_DOWN);
+  });
 }
 
 async function init() {
-  // Host label = whatever host you're connected to (no hardcoded name).
-  const hostEl = document.getElementById('host');
-  if (hostEl) hostEl.textContent = location.hostname;
   build();
   if (IS_TOUCH) {
     buildCompose();
-    setupViewport();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', positionCompose);
+      window.visualViewport.addEventListener('scroll', positionCompose);
+    }
   }
   const saved = loadState();
   // First run on a phone: default to a single full-screen terminal (a 2x2 grid of

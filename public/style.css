@@ -24,15 +24,13 @@ body {
   color: var(--fg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-text-size-adjust: 100%;
+  overflow: hidden; /* never let the page scroll behind the keyboard */
 }
 
 body {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  /* --app-h is set from visualViewport on touch so the layout shrinks above the
-     on-screen keyboard instead of being covered by it. */
-  height: var(--app-h, 100dvh);
   overflow: hidden;
 }
 
@@ -193,7 +191,9 @@ body {
   height: 100%;
 }
 
-/* ---- touch compose bar (hidden on desktop) ---- */
+/* ---- touch: control keys, floating type button, compose overlay (all hidden on desktop) ---- */
+.ctrls,
+#fab,
 #compose {
   display: none;
 }
@@ -206,42 +206,101 @@ body {
   .tile-head select {
     max-width: 50%;
   }
-  #compose {
-    display: flex;
-    gap: 6px;
-    align-items: flex-end;
-    padding: 6px 8px;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
-    background: var(--bg-2);
-    border-top: 1px solid var(--line);
-    flex: 0 0 auto;
+  /* top-bar control keys */
+  .ctrls {
+    display: inline-flex;
+    gap: 5px;
   }
-  #compose textarea {
-    flex: 1 1 auto;
-    resize: none;
-    min-height: 38px;
-    max-height: 120px;
-    padding: 8px 10px;
+  .ctrls button {
     background: var(--panel);
     color: var(--fg);
     border: 1px solid var(--line);
     border-radius: 8px;
-    font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    height: 30px;
+    min-width: 34px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+  /* hide grid layout buttons on a phone — single terminal is the norm */
+  .layouts {
+    display: none;
+  }
+  /* floating "type" button */
+  #fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    right: 14px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    border: 0;
+    font-size: 22px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+    z-index: 20;
+  }
+  #fab.hidden {
+    display: none;
+  }
+  /* compose overlay — floats above the keyboard, over the terminal */
+  #compose {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 21;
+    gap: 6px;
+    align-items: flex-end;
+    padding: 6px;
+    background: var(--bg-2);
+    border-top: 1px solid var(--line);
+  }
+  #compose.open {
+    display: flex;
+  }
+  #compose textarea {
+    flex: 1 1 auto;
+    min-width: 0; /* let it shrink so the buttons always fit */
+    resize: none;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 9px 11px;
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    /* 16px avoids iOS zoom-on-focus */
+    font: 16px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   }
   #compose textarea:focus {
     outline: none;
     border-color: var(--accent);
   }
-  #compose button {
+  #compose button.send {
     flex: 0 0 auto;
-    height: 38px;
-    padding: 0 16px;
+    height: 40px;
+    padding: 0 14px;
     background: var(--accent);
     color: #000;
     border: 0;
     border-radius: 8px;
     font-size: 15px;
     font-weight: 600;
+  }
+  #compose button.close {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 15px;
   }
 }
 

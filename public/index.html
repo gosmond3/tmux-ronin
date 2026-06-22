@@ -12,9 +12,13 @@
   </head>
   <body>
     <header id="bar">
-      <span class="brand">⛩ tmux ronin</span>
-      <span class="host" id="host"></span>
+      <span class="brand">⛩ ronin</span>
       <span class="grow"></span>
+      <div class="ctrls" role="group" aria-label="Keys">
+        <button id="k-esc" title="Esc">Esc</button>
+        <button id="k-int" title="Ctrl-C (interrupt)">^C</button>
+        <button id="k-bottom" title="Jump to latest output">⤓</button>
+      </div>
       <div class="layouts" role="group" aria-label="Grid layout">
         <button data-layout="1" title="Single terminal">1</button>
         <button data-layout="2" title="Two terminals">2</button>
