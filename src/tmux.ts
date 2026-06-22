@@ -72,11 +72,6 @@ export async function killSession(name: string): Promise<void> {
   }
 }
 
-/** Toggle the `mouse` option on a viewer (off => browser does native text selection). */
-export async function setMouse(name: string, on: boolean): Promise<void> {
-  await pexec('tmux', ['set-option', '-t', name, 'mouse', on ? 'on' : 'off']).catch(() => {});
-}
-
 let viewerCounter = 0;
 
 /**

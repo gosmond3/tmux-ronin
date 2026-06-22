@@ -34,11 +34,11 @@ Service (Linux): `systemctl --user {status,restart} tmux-ronin` · logs: `journa
   picker and killed on disconnect / startup cleanup. Each viewer gets `mouse on`.
 - tmux can't render one window at two sizes; `TMUX_WINDOW_SIZE` (default `latest`) controls
   the trade-off. See README.
-- WS protocol: client→server JSON `{t:'i',d}` (input) / `{t:'r',c,r}` (resize) /
-  `{t:'mouse',on}` (toggle viewer mouse); server→client raw binary = pty output, JSON
-  `{t:'ready'|'exit'|'error'}` = control.
-- Copy (desktop): the `⎘ Select` toggle sets the viewer's tmux `mouse off` so the browser
-  does native text selection, copied on ⌘C via a document `copy` handler. Works on http/https.
+- WS protocol: client→server JSON `{t:'i',d}` (input) / `{t:'r',c,r}` (resize); server→client
+  raw binary = pty output, JSON `{t:'ready'|'exit'|'error'}` = control.
+- Copy: the `⧉ Copy` button opens a panel (`buildCopySheet`) showing the visible terminal
+  text in a real `<textarea>` you select & copy natively (⌘C on desktop, long-press→Copy on
+  iOS). Avoids xterm's canvas-selection/mouse-mode pitfalls; works on http/https, any device.
 
 ## Frontend / mobile (where tuning happens)
 

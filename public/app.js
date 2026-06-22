@@ -19,7 +19,7 @@ let sessions = []; // [{name, windows, attached, created}]
 let active = null;
 const tiles = [];
 let compose = null; // the touch compose bar { bar, ta }
-let selectMode = false; // desktop: tmux mouse off so the browser does native selection
+let copySheet = null; // the copy panel { sheet, ta, open, close }
 
 const THEME = {
   background: '#0b0e14',
@@ -222,17 +222,15 @@ class Tile {
       'touchstart',
       (e) => {
         this.activate();
-        if (selectMode) return; // let xterm handle the touch for text selection
         lastY = e.touches[0] ? e.touches[0].clientY : null;
         accum = 0;
-        e.stopPropagation(); // keep xterm from starting a touch selection
+        e.stopPropagation();
       },
       { passive: true, capture: true },
     );
     this.body.addEventListener(
       'touchmove',
       (e) => {
-        if (selectMode) return; // selecting text, not scrolling
         if (lastY == null || !e.touches[0]) return;
         const y = e.touches[0].clientY;
         accum += y - lastY; // finger DOWN reveals older lines => wheel up
@@ -254,11 +252,6 @@ class Tile {
       'touchend',
       () => {
         lastY = null;
-        // In select mode, finger-up is a user gesture — copy the selection now.
-        if (selectMode && active === this && navigator.clipboard) {
-          const sel = this.term.getSelection ? this.term.getSelection() : '';
-          if (sel) navigator.clipboard.writeText(sel).then(flashCopied).catch(() => {});
-        }
       },
       { passive: true, capture: true },
     );
@@ -328,7 +321,6 @@ class Tile {
       this.setDot('on');
       this.doFit();
       this.send({ t: 'r', c: this.term.cols, r: this.term.rows });
-      if (selectMode) this.send({ t: 'mouse', on: false });
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data === 'string') {
@@ -455,15 +447,63 @@ function buildCompose() {
   compose = { bar, ta, open, hide };
 }
 
-/** Brief "Copied ✓" feedback on the Select button. */
-function flashCopied() {
-  const b = document.getElementById('selmode');
-  if (!b) return;
-  b.textContent = 'Copied ✓';
-  clearTimeout(b._flash);
-  b._flash = setTimeout(() => {
-    b.textContent = selectMode ? '⎘ Selecting' : '⎘ Select';
-  }, 1000);
+/** All visible terminal text (the alt-screen buffer under tmux), trailing blanks trimmed. */
+function terminalText(term) {
+  const buf = term.buffer.active;
+  const out = [];
+  for (let i = 0; i < buf.length; i++) {
+    const line = buf.getLine(i);
+    out.push(line ? line.translateToString(true) : '');
+  }
+  return out.join('\n').replace(/\s+$/, '');
+}
+
+/**
+ * Copy panel: a real, selectable <textarea> showing the terminal's text. You select
+ * what you want and copy natively (⌘C on desktop, long-press → Copy on iOS) — no
+ * canvas-selection or mouse-mode tricks. "Copy all" grabs everything in one tap.
+ */
+function buildCopySheet() {
+  const sheet = document.createElement('div');
+  sheet.id = 'copysheet';
+  const bar = document.createElement('div');
+  bar.className = 'cs-bar';
+  const hint = document.createElement('span');
+  hint.className = 'cs-hint';
+  hint.textContent = 'Select text → Copy (or ⌘C)';
+  const copyAll = document.createElement('button');
+  copyAll.textContent = 'Copy all';
+  const closeB = document.createElement('button');
+  closeB.textContent = 'Close';
+  bar.append(hint, copyAll, closeB);
+  const ta = document.createElement('textarea');
+  ta.readOnly = true;
+  ta.spellcheck = false;
+  sheet.append(bar, ta);
+  document.body.appendChild(sheet);
+
+  const open = () => {
+    if (!active) return;
+    ta.value = terminalText(active.term);
+    sheet.classList.add('open');
+  };
+  const close = () => sheet.classList.remove('open');
+  copyAll.addEventListener('click', async () => {
+    ta.select();
+    try {
+      await navigator.clipboard.writeText(ta.value);
+    } catch (_) {
+      try {
+        document.execCommand('copy');
+      } catch (_) {}
+    }
+    copyAll.textContent = 'Copied ✓';
+    setTimeout(() => {
+      copyAll.textContent = 'Copy all';
+    }, 1000);
+  });
+  closeB.addEventListener('click', close);
+  copySheet = { sheet, ta, open, close };
 }
 
 /** Float the compose overlay just above the on-screen keyboard. */
@@ -510,27 +550,10 @@ function build() {
     if (active) for (let i = 0; i < 40; i++) active.sendRaw(WHEEL_DOWN);
   });
 
-  // Select mode: turn tmux mouse off so dragging makes a normal browser text
-  // selection you can ⌘C/Ctrl-C; toggle back on for wheel scrolling.
-  const selBtn = document.getElementById('selmode');
-  if (selBtn) {
-    selBtn.addEventListener('click', () => {
-      selectMode = !selectMode;
-      selBtn.classList.toggle('armed', selectMode);
-      selBtn.textContent = selectMode ? '⎘ Selecting' : '⎘ Select';
-      tiles.forEach((t) => t.send({ t: 'mouse', on: !selectMode }));
-    });
-  }
-
-  // Copy the active terminal's selection on ⌘C/Ctrl-C (xterm renders to canvas, so
-  // the browser's native copy can't see it). Works on http and https.
-  document.addEventListener('copy', (e) => {
-    const sel = active && active.term.getSelection ? active.term.getSelection() : '';
-    if (sel && e.clipboardData) {
-      e.clipboardData.setData('text/plain', sel);
-      e.preventDefault();
-    }
-  });
+  // Copy: pop the visible terminal text into a real text panel you can select &
+  // copy natively (⌘C on desktop, long-press→Copy on iOS). Reliable on both.
+  buildCopySheet();
+  key('copybtn', () => copySheet && copySheet.open());
 }
 
 async function init() {

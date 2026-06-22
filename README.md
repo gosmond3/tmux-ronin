@@ -206,33 +206,32 @@ gated behind `IS_TOUCH`, so desktop is never affected:
   layout buttons are hidden on phones. iPad keeps the grid.
 
 ### Copy / paste
-- **Desktop:** click the **⎘ Select** toggle in the top bar — this turns the terminal's
-  mouse off so a drag makes a **normal, persistent text selection** you copy with ⌘C/Ctrl-C
-  and paste anywhere. Toggle it off to go back to wheel-scrolling. Works on http and https.
-- **Paste into** the terminal: ⌘V as usual.
-- **Touch (iPhone/iPad):** copy-out isn't wired yet (the drag gesture is used for
-  scrolling) — a known gap.
+Click **⧉ Copy** (top bar) to open a panel containing the visible terminal text in a real
+`<textarea>`. Select what you want and copy it **natively** — ⌘C/Ctrl-C on desktop,
+long-press → **Copy** on iPhone/iPad — or hit **Copy all**. Close to return. This avoids
+xterm's canvas-selection limits, so it works the same on any device, http or https.
+**Paste into** the terminal is just ⌘V (or the compose box on touch).
 
 ## Frontend architecture (`public/`)
 
 No framework — plain JS + xterm.js (UMD builds served from `node_modules` at `/vendor/*`).
 
-- **`index.html`** — top bar (brand, `⎘ Select`, `Esc`/`^C`/`⤓`, layout, refresh), empty
+- **`index.html`** — top bar (brand, `⧉ Copy`, `Esc`/`^C`/`⤓`, layout, refresh), empty
   `#grid`, loads `/vendor/xterm.js` + `addon-fit` + `app.js`.
 - **`app.js`**
   - `class Tile` — one xterm `Terminal` + `FitAddon` + a websocket. Key methods:
     `connect` / `detach`, `activate` (highlight only, no keyboard), `focusTerminal`
     (desktop click-to-focus), `sendRaw`, `setupDragScroll`, `doFit`.
-  - Globals: `IS_TOUCH`, `WHEEL_UP`/`WHEEL_DOWN` (SGR mouse-wheel sequences), `selectMode`,
+  - Globals: `IS_TOUCH`, `WHEEL_UP`/`WHEEL_DOWN` (SGR mouse-wheel sequences), `buildCopySheet`,
     `buildCompose` + `positionCompose` (the touch compose overlay floated above the
     keyboard), `setLayout`, `init`.
   - **WS protocol** (must stay in sync with `src/index.ts`):
-    - client→server JSON: `{t:'i', d}` = input, `{t:'r', c, r}` = resize, `{t:'mouse', on}` = toggle viewer mouse
+    - client→server JSON: `{t:'i', d}` = input, `{t:'r', c, r}` = resize
     - server→client: raw **binary** = pty output; JSON `{t:'ready'|'exit'|'error'}` = control
   - **Scrolling** works by injecting SGR wheel sequences (`\x1b[<64;1;1M` up / `…65…M` down)
     into the pty as input; tmux `mouse on` (set on each viewer) turns them into scrollback.
-  - **Copy**: the `⎘ Select` toggle sends `{t:'mouse', on:false}` so the browser does native
-    selection; a document `copy` handler writes `term.getSelection()` to the clipboard.
+  - **Copy**: the `⧉ Copy` button opens `#copysheet` (`buildCopySheet`) — a real `<textarea>`
+    filled from `term.buffer` (`terminalText`) that you select & copy natively on any device.
 - **`style.css`** — dark theme. Desktop vs touch split via `@media (pointer: coarse/fine)`;
   phone layout via `@media (max-width: 680px)`. The compose overlay & FAB are `position:
   fixed`; the page never shrinks (it stays full-screen and the overlay floats over it).
@@ -242,7 +241,7 @@ No framework — plain JS + xterm.js (UMD builds served from `node_modules` at `
 **Cardinal rule: do not change desktop behavior.** The owner uses this mostly on
 iPhone/iPad but the desktop path "works awesome." Every touch/mobile change MUST be gated
 behind `IS_TOUCH` (JS) or `@media (pointer: coarse)` / `@media (max-width: 680px)` (CSS),
-and desktop-only bits (the `⎘ Select` toggle) behind `@media (pointer: fine)`.
+The `⧉ Copy` panel works on every device.
 
 **You cannot test on a real iPhone from the agent environment.** Reason from standard iOS
 web behavior, keep changes isolated, then ask the owner to **reload Safari** (it caches
@@ -256,7 +255,7 @@ web behavior, keep changes isolated, then ask the owner to **reload Safari** (it
 **Common tuning knobs** (all in `public/`):
 - Drag-scroll sensitivity → `STEP` in `setupDragScroll`.
 - Compose overlay (the touch text box) → `buildCompose` / `positionCompose`.
-- Top-bar control keys + Select toggle → the `key(...)` / `selmode` wiring in `build()`.
+- Top-bar control keys + Copy panel → the `key(...)` wiring in `build()` + `buildCopySheet`.
 - Phone single-terminal default → the `phone` / `firstRun` logic in `init`.
 - Full-bleed single pane → `#grid.layout-1` rules in the `@media (max-width: 680px)` block.
 - Theme / font / scrollback → `THEME` and the `new Terminal({...})` options in `Tile`.
@@ -280,7 +279,7 @@ src/index.ts       Express + ws + node-pty bridge, REST API, auth, tailnet bind,
 src/tmux.ts        tmux helpers: list/create/kill sessions, grouped viewer sessions (mouse/size opts)
 src/config.ts      env parsing + tailnet-IP auto-bind
 public/index.html  page shell; loads xterm + app.js
-public/app.js      the whole frontend: Tile class, layouts, compose overlay, Select toggle, ws client
+public/app.js      the whole frontend: Tile class, layouts, compose overlay, copy panel, ws client
 public/style.css   dark theme; desktop/touch/phone breakpoints
 scripts/smoke-test.mjs   headless end-to-end pipe test
 deploy/tmux-ronin.service systemd --user unit

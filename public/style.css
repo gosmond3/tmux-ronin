@@ -53,8 +53,8 @@ body {
 #bar .grow {
   flex: 1;
 }
-/* Select-mode toggle — drag to make a native text selection, then copy */
-#selmode {
+/* Copy button — opens the selectable text panel */
+#copybtn {
   display: inline-flex;
   align-items: center;
   background: transparent;
@@ -67,10 +67,55 @@ body {
   cursor: pointer;
   white-space: nowrap;
 }
-#selmode.armed {
-  background: var(--accent);
-  color: #000;
-  border-color: var(--accent);
+
+/* Copy panel — real selectable text, native copy on any device */
+#copysheet {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  flex-direction: column;
+  background: var(--bg);
+}
+#copysheet.open {
+  display: flex;
+}
+#copysheet .cs-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+#copysheet .cs-hint {
+  flex: 1;
+  color: var(--muted);
+  font-size: 13px;
+}
+#copysheet .cs-bar button {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  height: 34px;
+  padding: 0 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+#copysheet textarea {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  resize: none;
+  padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.4 Menlo, "DejaVu Sans Mono", Consolas, monospace;
+  -webkit-user-select: text;
+  user-select: text;
 }
 .layouts {
   display: inline-flex;
