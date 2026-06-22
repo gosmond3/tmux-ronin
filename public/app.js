@@ -589,7 +589,7 @@ function build() {
       selBtn.addEventListener('click', () => {
         selectMode = !selectMode;
         selBtn.classList.toggle('armed', selectMode);
-        selBtn.textContent = selectMode ? 'Copying' : 'Copy mode';
+        selBtn.textContent = selectMode ? 'Select Text' : 'Copy mode';
         tiles.forEach((t) => t.send({ t: 'mouse', on: !selectMode }));
       });
     }
