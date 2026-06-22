@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 *.log
+# Local-only agent/dev notes (private handoff — never publish)
+CLAUDE.local.md
