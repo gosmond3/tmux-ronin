@@ -15,6 +15,7 @@ import {
   createViewer,
   cleanupViewers,
   isValidName,
+  setMouse,
 } from './tmux.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -170,7 +171,7 @@ async function handlePty(ws: WebSocket, url: URL): Promise<void> {
       term.write(raw.toString('utf8'));
       return;
     }
-    let msg: { t?: string; d?: string; c?: number; r?: number };
+    let msg: { t?: string; d?: string; c?: number; r?: number; on?: boolean };
     try {
       msg = JSON.parse(raw.toString());
     } catch {
@@ -186,6 +187,10 @@ async function handlePty(ws: WebSocket, url: URL): Promise<void> {
       } catch {
         /* race on close */
       }
+    } else if (msg.t === 'mouse') {
+      // Toggle tmux mouse on this viewer: off => browser does native text selection
+      // (Select mode for copy); on => tmux owns the mouse (wheel scroll).
+      void setMouse(viewer, !!msg.on);
     }
   });
 

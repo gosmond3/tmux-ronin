@@ -60,6 +60,29 @@ body {
 #bar .grow {
   flex: 1;
 }
+/* Select-mode toggle — desktop only (native text selection for copy) */
+#selmode {
+  display: none;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+#selmode.armed {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  #selmode {
+    display: inline-flex;
+    align-items: center;
+  }
+}
 .layouts {
   display: inline-flex;
   border: 1px solid var(--line);

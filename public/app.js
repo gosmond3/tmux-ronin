@@ -19,6 +19,7 @@ let sessions = []; // [{name, windows, attached, created}]
 let active = null;
 const tiles = [];
 let compose = null; // the touch compose bar { bar, ta }
+let selectMode = false; // desktop: tmux mouse off so the browser does native selection
 
 const THEME = {
   background: '#0b0e14',
@@ -328,6 +329,7 @@ class Tile {
       this.setDot('on');
       this.doFit();
       this.send({ t: 'r', c: this.term.cols, r: this.term.rows });
+      if (selectMode) this.send({ t: 'mouse', on: false });
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data === 'string') {
@@ -496,6 +498,28 @@ function build() {
   key('k-int', () => active && active.sendRaw('\x03'));
   key('k-bottom', () => {
     if (active) for (let i = 0; i < 40; i++) active.sendRaw(WHEEL_DOWN);
+  });
+
+  // Select mode: turn tmux mouse off so dragging makes a normal browser text
+  // selection you can ⌘C/Ctrl-C; toggle back on for wheel scrolling.
+  const selBtn = document.getElementById('selmode');
+  if (selBtn) {
+    selBtn.addEventListener('click', () => {
+      selectMode = !selectMode;
+      selBtn.classList.toggle('armed', selectMode);
+      selBtn.textContent = selectMode ? '⎘ Selecting' : '⎘ Select';
+      tiles.forEach((t) => t.send({ t: 'mouse', on: !selectMode }));
+    });
+  }
+
+  // Copy the active terminal's selection on ⌘C/Ctrl-C (xterm renders to canvas, so
+  // the browser's native copy can't see it). Works on http and https.
+  document.addEventListener('copy', (e) => {
+    const sel = active && active.term.getSelection ? active.term.getSelection() : '';
+    if (sel && e.clipboardData) {
+      e.clipboardData.setData('text/plain', sel);
+      e.preventDefault();
+    }
   });
 }
 
