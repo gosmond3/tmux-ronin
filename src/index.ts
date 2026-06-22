@@ -46,9 +46,6 @@ app.use((req, res, next) => {
 app.get('/vendor/xterm.css', (_req, res) => res.sendFile(path.join(NM, '@xterm/xterm/css/xterm.css')));
 app.get('/vendor/xterm.js', (_req, res) => res.sendFile(path.join(NM, '@xterm/xterm/lib/xterm.js')));
 app.get('/vendor/addon-fit.js', (_req, res) => res.sendFile(path.join(NM, '@xterm/addon-fit/lib/addon-fit.js')));
-app.get('/vendor/addon-clipboard.js', (_req, res) =>
-  res.sendFile(path.join(NM, '@xterm/addon-clipboard/lib/addon-clipboard.js')),
-);
 
 app.use(express.static(PUBLIC));
 

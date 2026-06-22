@@ -50,13 +50,6 @@ body {
   font-weight: 600;
   letter-spacing: 0.3px;
 }
-#bar .host {
-  font-size: 12px;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
 #bar .grow {
   flex: 1;
 }

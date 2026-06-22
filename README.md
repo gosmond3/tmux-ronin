@@ -196,56 +196,53 @@ sessions per tile avoids it.
 ### iPhone / iPad (the primary surface)
 The touch experience is deliberately different from desktop — and every bit of it is
 gated behind `IS_TOUCH`, so desktop is never affected:
-- **A tap does NOT pop the keyboard** — it only selects (activates) the tile. (Tapping
-  used to focus the terminal and open the keyboard on every touch.)
-- **⌨ button** (tile header) brings the keyboard up; tap again to dismiss.
-- **Scroll the conversation** by dragging one finger over the terminal, or with **⤒ / ⤓**
-  in the bottom key bar.
-- **Bottom key bar** `Esc Tab Ctrl ^C ← ↑ ↓ → ⤒ ⤓` sits above the keyboard and acts on
-  the active tile. **Ctrl is sticky** — tap it, then type a letter for Ctrl-⟨letter⟩.
-- **Phones default to one full-screen, edge-to-edge terminal** (layout 1, no panel
-  chrome). iPad keeps the grid. Tap **2/4** to change.
-- The layout **shrinks above the on-screen keyboard** (`visualViewport`) so the line
-  you're typing is never hidden.
+- **The terminal is full-screen.** A tap only selects the tile; it does not pop the keyboard.
+- **Type via the floating ⌨ button** (bottom-right): it opens a compose box that floats
+  above the keyboard. Type / paste / dictate, **Enter sends** it to the active terminal,
+  **✕** closes it. (Far easier than poking xterm's hidden field — paste & dictation work.)
+- **Top-bar control keys** `Esc` · `^C` · `⤓` (jump to latest) act on the active terminal.
+- **Scroll** by dragging one finger over the terminal.
+- **Phones default to one full-screen, edge-to-edge terminal** (layout 1); the grid
+  layout buttons are hidden on phones. iPad keeps the grid.
 
 ### Copy / paste
-Copy needs the **HTTPS URL** (`https://<your-host>.ts.net:8443`) — browsers block
-clipboard writes over plain HTTP. With tmux `mouse on`, **drag-select** the text; tmux
-copies it and emits **OSC 52**, which `@xterm/addon-clipboard` writes to your system
-clipboard (⌘V / long-press-paste elsewhere). The on-screen highlight clears on release
-(tmux behavior) but the text is already copied. **Paste into** the terminal is just ⌘V.
-On the plain-HTTP URL the clipboard addon is inert (no secure context), so drag there
-only does tmux's internal copy.
+- **Desktop:** click the **⎘ Select** toggle in the top bar — this turns the terminal's
+  mouse off so a drag makes a **normal, persistent text selection** you copy with ⌘C/Ctrl-C
+  and paste anywhere. Toggle it off to go back to wheel-scrolling. Works on http and https.
+- **Paste into** the terminal: ⌘V as usual.
+- **Touch (iPhone/iPad):** copy-out isn't wired yet (the drag gesture is used for
+  scrolling) — a known gap.
 
 ## Frontend architecture (`public/`)
 
 No framework — plain JS + xterm.js (UMD builds served from `node_modules` at `/vendor/*`).
 
-- **`index.html`** — top bar, empty `#grid`, loads `/vendor/xterm.js` + `addon-fit` + `app.js`.
+- **`index.html`** — top bar (brand, `⎘ Select`, `Esc`/`^C`/`⤓`, layout, refresh), empty
+  `#grid`, loads `/vendor/xterm.js` + `addon-fit` + `app.js`.
 - **`app.js`**
   - `class Tile` — one xterm `Terminal` + `FitAddon` + a websocket. Key methods:
     `connect` / `detach`, `activate` (highlight only, no keyboard), `focusTerminal`
-    (activate + keyboard), `sendRaw`, `setupDragScroll`, `addTouchControls`, `doFit`.
-  - Globals: `IS_TOUCH`, `WHEEL_UP`/`WHEEL_DOWN` (SGR mouse-wheel sequences), `applyCtrl`
-    (sticky-Ctrl transform on the next typed char), `buildKeybar`/`handleKey`,
-    `setupViewport` (visualViewport → `--app-h`), `setLayout`, `init`.
+    (desktop click-to-focus), `sendRaw`, `setupDragScroll`, `doFit`.
+  - Globals: `IS_TOUCH`, `WHEEL_UP`/`WHEEL_DOWN` (SGR mouse-wheel sequences), `selectMode`,
+    `buildCompose` + `positionCompose` (the touch compose overlay floated above the
+    keyboard), `setLayout`, `init`.
   - **WS protocol** (must stay in sync with `src/index.ts`):
-    - client→server JSON: `{t:'i', d}` = input, `{t:'r', c, r}` = resize
+    - client→server JSON: `{t:'i', d}` = input, `{t:'r', c, r}` = resize, `{t:'mouse', on}` = toggle viewer mouse
     - server→client: raw **binary** = pty output; JSON `{t:'ready'|'exit'|'error'}` = control
   - **Scrolling** works by injecting SGR wheel sequences (`\x1b[<64;1;1M` up / `…65…M` down)
     into the pty as input; tmux `mouse on` (set on each viewer) turns them into scrollback.
-- **`style.css`** — dark theme. Desktop vs touch split via `@media (pointer: coarse)`;
-  phone layout via `@media (max-width: 680px)`. Body height = `var(--app-h, 100dvh)` so
-  the keyboard can shrink the app on touch only.
+  - **Copy**: the `⎘ Select` toggle sends `{t:'mouse', on:false}` so the browser does native
+    selection; a document `copy` handler writes `term.getSelection()` to the clipboard.
+- **`style.css`** — dark theme. Desktop vs touch split via `@media (pointer: coarse/fine)`;
+  phone layout via `@media (max-width: 680px)`. The compose overlay & FAB are `position:
+  fixed`; the page never shrinks (it stays full-screen and the overlay floats over it).
 
 ## For future agents — tuning guide
 
 **Cardinal rule: do not change desktop behavior.** The owner uses this mostly on
 iPhone/iPad but the desktop path "works awesome." Every touch/mobile change MUST be gated
-behind `IS_TOUCH` (JS) or `@media (pointer: coarse)` / `@media (max-width: 680px)` (CSS).
-After any change, confirm the non-touch code path is byte-identical (e.g. `grep` that new
-handlers live only inside `if (IS_TOUCH)`), and that `applyCtrl` stays a no-op unless the
-touch key bar armed Ctrl.
+behind `IS_TOUCH` (JS) or `@media (pointer: coarse)` / `@media (max-width: 680px)` (CSS),
+and desktop-only bits (the `⎘ Select` toggle) behind `@media (pointer: fine)`.
 
 **You cannot test on a real iPhone from the agent environment.** Reason from standard iOS
 web behavior, keep changes isolated, then ask the owner to **reload Safari** (it caches
@@ -258,10 +255,10 @@ web behavior, keep changes isolated, then ask the owner to **reload Safari** (it
 
 **Common tuning knobs** (all in `public/`):
 - Drag-scroll sensitivity → `STEP` in `setupDragScroll`.
-- Key bar keys → the `KEYS` array in `buildKeybar` (sequences dispatched by `handleKey`).
+- Compose overlay (the touch text box) → `buildCompose` / `positionCompose`.
+- Top-bar control keys + Select toggle → the `key(...)` / `selmode` wiring in `build()`.
 - Phone single-terminal default → the `phone` / `firstRun` logic in `init`.
 - Full-bleed single pane → `#grid.layout-1` rules in the `@media (max-width: 680px)` block.
-- Keyboard-aware sizing → `setupViewport`.
 - Theme / font / scrollback → `THEME` and the `new Terminal({...})` options in `Tile`.
 
 **Deploy after changes:** `public/` is served live — just reload the browser. Server
@@ -283,7 +280,7 @@ src/index.ts       Express + ws + node-pty bridge, REST API, auth, tailnet bind,
 src/tmux.ts        tmux helpers: list/create/kill sessions, grouped viewer sessions (mouse/size opts)
 src/config.ts      env parsing + tailnet-IP auto-bind
 public/index.html  page shell; loads xterm + app.js
-public/app.js      the whole frontend: Tile class, layouts, touch key bar, viewport, ws client
+public/app.js      the whole frontend: Tile class, layouts, compose overlay, Select toggle, ws client
 public/style.css   dark theme; desktop/touch/phone breakpoints
 scripts/smoke-test.mjs   headless end-to-end pipe test
 deploy/tmux-ronin.service systemd --user unit

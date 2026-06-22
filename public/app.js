@@ -120,14 +120,6 @@ class Tile {
     });
     this.fit = new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
-    // Clipboard via OSC 52 (tmux already emits it on copy). navigator.clipboard only
-    // exists in a secure context, so this activates on HTTPS and is a no-op on the
-    // plain-HTTP URL — drag-select then copies to the system clipboard.
-    if (window.isSecureContext && window.ClipboardAddon) {
-      try {
-        this.term.loadAddon(new ClipboardAddon.ClipboardAddon());
-      } catch (_) {}
-    }
     this.term.open(this.body);
     this.term.onData((d) => this.send({ t: 'i', d }));
     this.term.onResize(({ cols, rows }) => this.send({ t: 'r', c: cols, r: rows }));
