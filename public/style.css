@@ -193,8 +193,7 @@ body {
   height: 100%;
 }
 
-/* ---- touch compose bar + accessory key bar (hidden on desktop) ---- */
-#keybar,
+/* ---- touch compose bar (hidden on desktop) ---- */
 #compose {
   display: none;
 }
@@ -207,41 +206,12 @@ body {
   .tile-head select {
     max-width: 50%;
   }
-  #keybar {
-    display: flex;
-    gap: 5px;
-    padding: 6px 8px;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
-    background: var(--bg-2);
-    border-top: 1px solid var(--line);
-    overflow-x: auto;
-    flex: 0 0 auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  #keybar button {
-    flex: 0 0 auto;
-    min-width: 44px;
-    height: 38px;
-    background: var(--panel);
-    color: var(--fg);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    font-size: 14px;
-    font-family: inherit;
-  }
-  #keybar button:active {
-    background: var(--line);
-  }
-  #keybar button.armed {
-    background: var(--accent);
-    color: #000;
-    border-color: var(--accent);
-  }
   #compose {
     display: flex;
     gap: 6px;
     align-items: flex-end;
     padding: 6px 8px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
     background: var(--bg-2);
     border-top: 1px solid var(--line);
     flex: 0 0 auto;

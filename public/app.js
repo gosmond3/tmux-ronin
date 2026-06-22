@@ -18,8 +18,6 @@ const WHEEL_DOWN = '\x1b[<65;1;1M';
 let sessions = []; // [{name, windows, attached, created}]
 let active = null;
 const tiles = [];
-let ctrlArmed = false; // touch key bar: Ctrl modifier applied to the next typed char
-let keybar = null; // the touch accessory key bar element
 let compose = null; // the touch compose bar { bar, ta }
 
 const THEME = {
@@ -130,15 +128,13 @@ class Tile {
       } catch (_) {}
     }
     this.term.open(this.body);
-    this.term.onData((d) => this.send({ t: 'i', d: applyCtrl(d) }));
+    this.term.onData((d) => this.send({ t: 'i', d }));
     this.term.onResize(({ cols, rows }) => this.send({ t: 'r', c: cols, r: rows }));
 
     if (IS_TOUCH) {
-      // Touch (iPhone/iPad): a tap only activates the tile — it does NOT focus the
-      // terminal, so the keyboard never pops up on its own. Typing is via the ⌨
-      // button; scrolling is via drag or the ▲/▼ buttons.
+      // Touch (iPhone/iPad): tap only activates the tile. Typing is via the compose
+      // bar at the bottom; drag the terminal to scroll.
       this.body.addEventListener('pointerdown', () => this.activate());
-      this.addTouchControls();
       this.setupDragScroll();
     } else {
       // Desktop: click focuses the terminal. Works great — left untouched.
@@ -222,20 +218,6 @@ class Tile {
   /** Write a raw string to the pty (used for injected wheel sequences). */
   sendRaw(d) {
     this.send({ t: 'i', d });
-  }
-
-  /** TOUCH ONLY: add the ⌨ keyboard-toggle button to the tile header. */
-  addTouchControls() {
-    const kbd = document.createElement('button');
-    kbd.className = 'kbd';
-    kbd.textContent = '⌨';
-    kbd.title = 'Keyboard';
-    this.el.querySelector('.tile-head').insertBefore(kbd, this.el.querySelector('.rc'));
-    kbd.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (document.activeElement === this.term.textarea) this.term.blur();
-      else this.focusTerminal();
-    });
   }
 
   /** TOUCH ONLY: one-finger drag over the terminal scrolls the tmux scrollback. */
@@ -388,76 +370,6 @@ class Tile {
   }
 }
 
-/* ---------- touch: Ctrl modifier + accessory key bar (no-ops on desktop) ---------- */
-
-/** If Ctrl is armed, convert the next single char to its control code. */
-function applyCtrl(d) {
-  if (!ctrlArmed || d.length !== 1) return d;
-  setCtrl(false);
-  const c = d.charCodeAt(0);
-  const lower = c >= 65 && c <= 90 ? c + 32 : c; // upper -> lower
-  if (lower >= 97 && lower <= 122) return String.fromCharCode(lower - 96); // ^A..^Z
-  if (c === 32) return '\x00'; // ^Space -> NUL
-  if (c >= 91 && c <= 95) return String.fromCharCode(c - 64); // ^[ ^\ ^] ^^ ^_
-  return d;
-}
-
-function setCtrl(on) {
-  ctrlArmed = on;
-  const b = keybar && keybar.querySelector('[data-ctrl]');
-  if (b) b.classList.toggle('armed', on);
-}
-
-/** Bottom key bar for terminal keys that are hard/absent on the iOS keyboard. */
-function buildKeybar() {
-  keybar = document.createElement('div');
-  keybar.id = 'keybar';
-  // [label, payload] — payload is a literal sequence, or a command token.
-  const KEYS = [
-    ['Esc', '\x1b'],
-    ['Tab', '\t'],
-    ['Ctrl', 'CTRL'],
-    ['^C', '\x03'],
-    ['←', '\x1b[D'],
-    ['↑', '\x1b[A'],
-    ['↓', '\x1b[B'],
-    ['→', '\x1b[C'],
-    ['⤒', 'SCRUP'],
-    ['⤓', 'SCRDN'],
-  ];
-  for (const [label, seq] of KEYS) {
-    const b = document.createElement('button');
-    b.textContent = label;
-    if (seq === 'CTRL') b.dataset.ctrl = '1';
-    // Prevent the tap from blurring the terminal — keeps the keyboard up.
-    b.addEventListener('pointerdown', (e) => e.preventDefault());
-    b.addEventListener('mousedown', (e) => e.preventDefault());
-    b.addEventListener('click', (e) => {
-      e.preventDefault();
-      handleKey(seq);
-    });
-    keybar.appendChild(b);
-  }
-  document.body.appendChild(keybar);
-}
-
-function handleKey(seq) {
-  if (seq === 'CTRL') {
-    setCtrl(!ctrlArmed);
-    return;
-  }
-  if (!active) return;
-  if (seq === 'SCRUP') {
-    for (let i = 0; i < 3; i++) active.sendRaw(WHEEL_UP);
-    return;
-  }
-  if (seq === 'SCRDN') {
-    for (let i = 0; i < 3; i++) active.sendRaw(WHEEL_DOWN);
-    return;
-  }
-  active.sendRaw(seq); // sent over the ws regardless of focus
-}
-
 /**
  * TOUCH: a compose bar — a real native textarea where you type / dictate (Wispr Flow) /
  * paste, then Enter or Send writes the whole line into the active terminal and runs it.
@@ -469,11 +381,15 @@ function buildCompose() {
 
   const ta = document.createElement('textarea');
   ta.rows = 1;
-  ta.placeholder = 'Type, paste, or dictate — Enter sends';
+  ta.placeholder = 'Type, Enter sends';
   ta.autocapitalize = 'off';
   ta.autocomplete = 'off';
   ta.spellcheck = false;
   ta.setAttribute('autocorrect', 'off');
+  ta.setAttribute('inputmode', 'text');
+  ta.setAttribute('enterkeyhint', 'send');
+  ta.setAttribute('data-1p-ignore', ''); // suppress password-manager / autofill prompts
+  ta.setAttribute('data-lpignore', 'true');
 
   const btn = document.createElement('button');
   btn.textContent = 'Send';
@@ -512,15 +428,18 @@ function buildCompose() {
 }
 
 /**
- * iOS: the soft keyboard overlays the page instead of resizing it, hiding the line
- * you're typing. Track the visual viewport and shrink the app to the visible height
- * so the active terminal row stays above the keyboard (and the key bar with it).
+ * iOS: the soft keyboard overlays the page instead of resizing it. Shrink the app to
+ * the visible height so the terminal + compose bar stay above the keyboard, and undo
+ * iOS's habit of scrolling the focused field into view (which scrolled the terminal
+ * off-screen and left it black).
  */
 function setupViewport() {
   const vv = window.visualViewport;
   if (!vv) return;
   const apply = () => {
     document.documentElement.style.setProperty('--app-h', Math.round(vv.height) + 'px');
+    // Pin the app to the top of the layout viewport — counter the iOS auto-scroll.
+    window.scrollTo(0, 0);
     if (active) active.doFit();
     else tiles.forEach((t) => t.doFit());
   };
@@ -562,8 +481,7 @@ async function init() {
   if (hostEl) hostEl.textContent = location.hostname;
   build();
   if (IS_TOUCH) {
-    buildCompose(); // compose bar above…
-    buildKeybar(); // …the accessory key bar (closest to the keyboard)
+    buildCompose();
     setupViewport();
   }
   const saved = loadState();
