@@ -222,6 +222,7 @@ class Tile {
       'touchstart',
       (e) => {
         this.activate();
+        if (selectMode) return; // let xterm handle the touch for text selection
         lastY = e.touches[0] ? e.touches[0].clientY : null;
         accum = 0;
         e.stopPropagation(); // keep xterm from starting a touch selection
@@ -231,6 +232,7 @@ class Tile {
     this.body.addEventListener(
       'touchmove',
       (e) => {
+        if (selectMode) return; // selecting text, not scrolling
         if (lastY == null || !e.touches[0]) return;
         const y = e.touches[0].clientY;
         accum += y - lastY; // finger DOWN reveals older lines => wheel up
@@ -252,6 +254,11 @@ class Tile {
       'touchend',
       () => {
         lastY = null;
+        // In select mode, finger-up is a user gesture — copy the selection now.
+        if (selectMode && active === this && navigator.clipboard) {
+          const sel = this.term.getSelection ? this.term.getSelection() : '';
+          if (sel) navigator.clipboard.writeText(sel).then(flashCopied).catch(() => {});
+        }
       },
       { passive: true, capture: true },
     );
@@ -446,6 +453,17 @@ function buildCompose() {
 
   document.body.append(fab, bar);
   compose = { bar, ta, open, hide };
+}
+
+/** Brief "Copied ✓" feedback on the Select button. */
+function flashCopied() {
+  const b = document.getElementById('selmode');
+  if (!b) return;
+  b.textContent = 'Copied ✓';
+  clearTimeout(b._flash);
+  b._flash = setTimeout(() => {
+    b.textContent = selectMode ? '⎘ Selecting' : '⎘ Select';
+  }, 1000);
 }
 
 /** Float the compose overlay just above the on-screen keyboard. */

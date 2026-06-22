@@ -53,9 +53,10 @@ body {
 #bar .grow {
   flex: 1;
 }
-/* Select-mode toggle — desktop only (native text selection for copy) */
+/* Select-mode toggle — drag to make a native text selection, then copy */
 #selmode {
-  display: none;
+  display: inline-flex;
+  align-items: center;
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--line);
@@ -64,17 +65,12 @@ body {
   padding: 0 10px;
   font-size: 12px;
   cursor: pointer;
+  white-space: nowrap;
 }
 #selmode.armed {
   background: var(--accent);
   color: #000;
   border-color: var(--accent);
-}
-@media (hover: hover) and (pointer: fine) {
-  #selmode {
-    display: inline-flex;
-    align-items: center;
-  }
 }
 .layouts {
   display: inline-flex;
