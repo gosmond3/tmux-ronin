@@ -237,6 +237,11 @@ body {
 .tile-head button:active {
   color: var(--accent);
 }
+.tile-head button.kill:hover,
+.tile-head button.kill:active {
+  color: var(--bad);
+  border-color: var(--bad);
+}
 .tile-body {
   flex: 1 1 auto;
   min-height: 0;

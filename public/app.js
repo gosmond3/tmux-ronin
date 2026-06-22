@@ -85,6 +85,13 @@ async function createSession(name) {
   return data.name;
 }
 
+/** Kill a tmux session on the host (and its grid_* viewers). */
+async function deleteSession(name) {
+  const r = await fetch('/api/sessions/' + encodeURIComponent(name), { method: 'DELETE' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+}
+
 /* ---------- tile ---------- */
 class Tile {
   constructor(index) {
@@ -102,7 +109,8 @@ class Tile {
         <select class="sess" title="Pick / switch session"></select>
         <span class="grow"></span>
         <button class="rc" title="Reconnect">⟳</button>
-        <button class="dc" title="Detach">✕</button>
+        <button class="dc" title="Detach (stop viewing)">✕</button>
+        <button class="kill" title="Kill session (ends it + its viewers)">🗑</button>
       </div>
       <div class="tile-body"></div>`;
     this.select = this.el.querySelector('.sess');
@@ -145,6 +153,7 @@ class Tile {
       if (this.session) this.connect(this.session);
     });
     this.el.querySelector('.dc').addEventListener('click', () => this.detach());
+    this.el.querySelector('.kill').addEventListener('click', () => this.kill());
 
     this.ro = new ResizeObserver(() => this.doFit());
     this.ro.observe(this.body);
@@ -284,6 +293,21 @@ class Tile {
     this.term.reset();
     this.writeBanner();
     saveState();
+  }
+
+  /** Destroy the tmux session on the host (root + its grid_* viewers), then detach. */
+  async kill() {
+    const name = this.session;
+    if (!name) return;
+    if (!confirm(`Kill tmux session "${name}"? This ends the session and everything running in it.`)) return;
+    try {
+      await deleteSession(name);
+    } catch (e) {
+      alert('Could not kill session:\n' + e.message);
+      return;
+    }
+    this.detach();
+    fetchSessions();
   }
 
   connect(session) {

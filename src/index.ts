@@ -12,6 +12,7 @@ import {
   sessionExists,
   createSession,
   killSession,
+  killSessionTree,
   createViewer,
   cleanupViewers,
   isValidName,
@@ -78,7 +79,7 @@ app.post('/api/sessions', async (req, res) => {
 app.delete('/api/sessions/:name', async (req, res) => {
   const { name } = req.params;
   if (!isValidName(name)) return res.status(400).json({ error: 'Invalid name.' });
-  await killSession(name);
+  await killSessionTree(name);
   res.json({ ok: true });
 });
 

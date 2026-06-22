@@ -72,6 +72,37 @@ export async function killSession(name: string): Promise<void> {
   }
 }
 
+/**
+ * Kill a real session AND every viewer grouped with it. Browser viewers are grouped
+ * sessions (created with `new-session -t name`), so they share tmux's session_group;
+ * we match on that to find them exactly (no fragile name-prefix guessing). Without
+ * this, killing a session leaves its `grid_*` viewers behind.
+ */
+export async function killSessionTree(name: string): Promise<void> {
+  const targets = new Set<string>([name]);
+  try {
+    const { stdout } = await pexec('tmux', [
+      'list-sessions',
+      '-F',
+      '#{session_name}\t#{session_group}',
+    ]);
+    const rows = stdout
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [sname, group] = line.split('\t');
+        return { sname, group: group || '' };
+      });
+    const self = rows.find((r) => r.sname === name);
+    if (self?.group) {
+      for (const r of rows) if (r.group === self.group) targets.add(r.sname);
+    }
+  } catch {
+    // no server / older tmux without session_group — fall back to killing just `name`
+  }
+  for (const s of targets) await killSession(s);
+}
+
 let viewerCounter = 0;
 
 /**
