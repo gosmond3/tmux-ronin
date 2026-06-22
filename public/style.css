@@ -53,9 +53,9 @@ body {
 #bar .grow {
   flex: 1;
 }
-/* Copy button — opens the selectable text panel */
+/* Copy button — opens the selectable text panel (touch only) */
 #copybtn {
-  display: inline-flex;
+  display: none;
   align-items: center;
   background: transparent;
   color: var(--muted);
@@ -66,6 +66,35 @@ body {
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
+}
+@media (pointer: coarse) {
+  #copybtn {
+    display: inline-flex;
+  }
+}
+/* Select-mode toggle — desktop only (native in-place text selection for copy) */
+#selmode {
+  display: none;
+  align-items: center;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#selmode.armed {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  #selmode {
+    display: inline-flex;
+  }
 }
 
 /* Copy panel — real selectable text, native copy on any device */

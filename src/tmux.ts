@@ -103,6 +103,11 @@ export async function killSessionTree(name: string): Promise<void> {
   for (const s of targets) await killSession(s);
 }
 
+/** Toggle the `mouse` option on a viewer (off => browser does native text selection). */
+export async function setMouse(name: string, on: boolean): Promise<void> {
+  await pexec('tmux', ['set-option', '-t', name, 'mouse', on ? 'on' : 'off']).catch(() => {});
+}
+
 let viewerCounter = 0;
 
 /**
