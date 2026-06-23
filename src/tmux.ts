@@ -53,7 +53,9 @@ export async function listSessions(): Promise<SessionInfo[]> {
 
 export async function sessionExists(name: string): Promise<boolean> {
   try {
-    await pexec('tmux', ['has-session', '-t', name]);
+    // `=` forces an exact match — without it, `has-session -t kojin` would
+    // prefix-match an existing `kojinsa` and wrongly report the name as taken.
+    await pexec('tmux', ['has-session', '-t', `=${name}`]);
     return true;
   } catch {
     return false;
