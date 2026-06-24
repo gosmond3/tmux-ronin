@@ -19,7 +19,10 @@ let sessions = []; // [{name, windows, attached, created}]
 let active = null;
 const tiles = [];
 let compose = null; // the touch compose bar { bar, ta }
-let copySheet = null; // the copy panel { sheet, ta, open, close }
+let copySheet = null; // the copy panel { sheet, ta, open, close } — touch only
+let selectMode = false; // desktop Copy Mode: tmux mouse off so the browser selects natively
+let lastSelection = ''; // last non-empty terminal selection, kept so a live-TUI redraw
+// that clears the on-screen highlight can't lose the text before ⌘C reads it
 
 const THEME = {
   background: '#0b0e14',
@@ -131,6 +134,12 @@ class Tile {
     this.term.open(this.body);
     this.term.onData((d) => this.send({ t: 'i', d }));
     this.term.onResize(({ cols, rows }) => this.send({ t: 'r', c: cols, r: rows }));
+    // Stash the selection as soon as it's made; a streaming TUI repaint can clear the
+    // visible highlight before ⌘C fires, so we copy this captured text, not a stale read.
+    this.term.onSelectionChange(() => {
+      const s = this.term.getSelection ? this.term.getSelection() : '';
+      if (s) lastSelection = s;
+    });
 
     if (IS_TOUCH) {
       // Touch (iPhone/iPad): tap only activates the tile. Typing is via the compose
@@ -345,6 +354,7 @@ class Tile {
       this.setDot('on');
       this.doFit();
       this.send({ t: 'r', c: this.term.cols, r: this.term.rows });
+      if (selectMode) this.send({ t: 'mouse', on: false }); // keep copy mode after reconnect
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data === 'string') {
@@ -574,12 +584,36 @@ function build() {
     if (active) for (let i = 0; i < 40; i++) active.sendRaw(WHEEL_DOWN);
   });
 
-  // Copy: pop the active tile's visible text into a real selectable text panel —
-  // select what you want and ⌘C (desktop) / long-press→Copy (iOS) into the device
-  // clipboard. Reliable on a live TUI, where xterm's canvas selection fights the
-  // constant redraw. Same panel on both surfaces; the button differs per device.
-  buildCopySheet();
-  key(IS_TOUCH ? 'copybtn' : 'selmode', () => copySheet && copySheet.open());
+  if (IS_TOUCH) {
+    // Touch (iPhone/iPad): no precise pointer and the canvas can't be touch-selected,
+    // so Copy pops the visible text into a real <textarea> panel to select & copy.
+    buildCopySheet();
+    key('copybtn', () => copySheet && copySheet.open());
+  } else {
+    // Desktop (Mac): Copy Mode is a real toggle. ON => tmux mouse OFF so a drag is a
+    // native browser selection on the canvas (and the button lights up); OFF => mouse
+    // back ON for normal terminal use (wheel scroll). The screen is never covered.
+    const selBtn = document.getElementById('selmode');
+    if (selBtn) {
+      selBtn.addEventListener('click', () => {
+        selectMode = !selectMode;
+        selBtn.classList.toggle('armed', selectMode);
+        selBtn.textContent = selectMode ? 'Copy Mode ●' : 'Copy Mode';
+        tiles.forEach((t) => t.send({ t: 'mouse', on: !selectMode }));
+      });
+    }
+    // xterm draws to a canvas, so the browser's native copy can't see the selection —
+    // feed it the captured terminal selection on ⌘C/Ctrl-C. Works on http and https.
+    document.addEventListener('copy', (e) => {
+      if (!selectMode) return; // normal mode: let the browser copy whatever it wants
+      const live = active && active.term.getSelection ? active.term.getSelection() : '';
+      const sel = live || lastSelection;
+      if (sel && e.clipboardData) {
+        e.clipboardData.setData('text/plain', sel);
+        e.preventDefault();
+      }
+    });
+  }
 }
 
 async function init() {
