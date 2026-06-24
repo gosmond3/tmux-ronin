@@ -91,6 +91,70 @@ body {
   color: #000;
   border-color: var(--accent);
 }
+/* "?" help popover next to Copy Mode (desktop only) */
+.copywrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#copyhelp {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+#copyhelp:hover {
+  color: var(--fg);
+  border-color: var(--muted);
+}
+#copyhelp-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: 280px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: var(--fg);
+  font-size: 12.5px;
+  line-height: 1.5;
+  cursor: default;
+}
+#copyhelp-pop.open {
+  display: block;
+}
+#copyhelp-pop strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--accent);
+}
+#copyhelp-pop p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+#copyhelp-pop b {
+  color: var(--fg);
+  font-weight: 600;
+}
+@media (hover: hover) and (pointer: fine) {
+  #copyhelp {
+    display: inline-flex;
+  }
+}
 @media (hover: hover) and (pointer: fine) {
   #selmode {
     display: inline-flex;

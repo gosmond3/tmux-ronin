@@ -606,6 +606,21 @@ function build() {
         tiles.forEach((t) => t.send({ t: 'mouse', on: !selectMode }));
       });
     }
+    // "?" popover explaining how to copy (esp. Option+drag in Claude panes).
+    const help = document.getElementById('copyhelp');
+    const pop = document.getElementById('copyhelp-pop');
+    if (help && pop) {
+      help.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pop.classList.toggle('open');
+      });
+      document.addEventListener('click', (e) => {
+        if (e.target !== help && !pop.contains(e.target)) pop.classList.remove('open');
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') pop.classList.remove('open');
+      });
+    }
     // xterm draws to a canvas, so the browser's native copy can't see the selection —
     // feed it the captured terminal selection on ⌘C/Ctrl-C. Works on http and https.
     document.addEventListener('copy', (e) => {

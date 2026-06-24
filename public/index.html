@@ -14,7 +14,15 @@
     <header id="bar">
       <span class="brand">⛩ ronin</span>
       <span class="grow"></span>
-      <button id="selmode" title="Copy mode: drag-select then ⌘C. In a live app like Claude, hold Option while dragging.">Copy Mode</button>
+      <span class="copywrap">
+        <button id="selmode" title="Copy mode: drag-select then ⌘C. In a live app like Claude, hold Option while dragging.">Copy Mode</button>
+        <button id="copyhelp" title="How to copy" aria-label="How to copy">?</button>
+        <div id="copyhelp-pop" role="dialog" aria-label="How to copy">
+          <strong>How to copy</strong>
+          <p>Click <b>Copy Mode</b>, then drag to select text on the terminal and press <b>⌘C</b>.</p>
+          <p>In a <b>Claude</b> terminal (or any live app), hold <b>Option</b> while you drag to select, then <b>⌘C</b>.</p>
+        </div>
+      </span>
       <button id="copybtn" title="Copy text from the terminal">Copy mode</button>
       <div class="ctrls" role="group" aria-label="Keys">
         <button id="k-esc" title="Esc">Esc</button>
