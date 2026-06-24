@@ -128,6 +128,10 @@ class Tile {
       scrollback: 8000,
       allowProposedApi: true,
       macOptionIsMeta: true,
+      // Option+drag forces a native selection even when the running app (e.g. Claude
+      // Code) holds mouse-reporting on and would otherwise eat the drag. Lets you copy
+      // in-place out of a live TUI without a panel.
+      macOptionClickForcesSelection: true,
     });
     this.fit = new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
@@ -605,9 +609,11 @@ function build() {
     // xterm draws to a canvas, so the browser's native copy can't see the selection —
     // feed it the captured terminal selection on ⌘C/Ctrl-C. Works on http and https.
     document.addEventListener('copy', (e) => {
-      if (!selectMode) return; // normal mode: let the browser copy whatever it wants
       const live = active && active.term.getSelection ? active.term.getSelection() : '';
       const sel = live || lastSelection;
+      // Only hijack ⌘C when the terminal actually has a selection; otherwise let the
+      // browser copy normally. Works whether the selection came from Copy Mode (mouse
+      // off) or an Option+drag over a mouse-grabbing app.
       if (sel && e.clipboardData) {
         e.clipboardData.setData('text/plain', sel);
         e.preventDefault();
