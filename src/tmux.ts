@@ -9,7 +9,12 @@ export interface SessionInfo {
   windows: number;
   attached: boolean;
   created: number;
+  /** Whether this session has a post-it note attached (stored as a tmux user option). */
+  hasNote: boolean;
 }
+
+/** tmux user option holding a session's post-it note. Lives and dies with the session. */
+const NOTE_OPT = '@ronin_note';
 
 /** tmux session names can't contain '.' or ':' and we keep them shell-safe. */
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
@@ -29,18 +34,19 @@ export async function listSessions(): Promise<SessionInfo[]> {
     const { stdout } = await pexec('tmux', [
       'list-sessions',
       '-F',
-      '#{session_name}\t#{session_windows}\t#{?session_attached,1,0}\t#{session_created}',
+      `#{session_name}\t#{session_windows}\t#{?session_attached,1,0}\t#{session_created}\t#{?${NOTE_OPT},1,0}`,
     ]);
     return stdout
       .split('\n')
       .filter(Boolean)
       .map((line) => {
-        const [name, windows, attached, created] = line.split('\t');
+        const [name, windows, attached, created, hasNote] = line.split('\t');
         return {
           name,
           windows: Number(windows) || 0,
           attached: attached === '1',
           created: Number(created) || 0,
+          hasNote: hasNote === '1',
         };
       })
       .filter((s) => !s.name.startsWith(config.viewerPrefix))
@@ -103,6 +109,30 @@ export async function killSessionTree(name: string): Promise<void> {
     // no server / older tmux without session_group — fall back to killing just `name`
   }
   for (const s of targets) await killSession(s);
+}
+
+/**
+ * Read a session's post-it note (empty string if none). Stored as a tmux user option
+ * on the session itself, so it needs no separate storage and vanishes with the session.
+ * Plain `-t name` is safe: tmux prefers an exact name match over a prefix, so `kojin`
+ * and `kojinsa` keep distinct notes (callers validate the session exists first).
+ */
+export async function getNote(name: string): Promise<string> {
+  try {
+    const { stdout } = await pexec('tmux', ['show-options', '-t', name, '-qv', NOTE_OPT]);
+    return stdout.replace(/\n$/, ''); // show-options appends one trailing newline
+  } catch {
+    return '';
+  }
+}
+
+/** Set (or, when blank, clear) a session's post-it note. */
+export async function setNote(name: string, text: string): Promise<void> {
+  if (text.trim()) {
+    await pexec('tmux', ['set-option', '-t', name, NOTE_OPT, text]);
+  } else {
+    await pexec('tmux', ['set-option', '-t', name, '-u', NOTE_OPT]).catch(() => {});
+  }
 }
 
 /** Toggle the `mouse` option on a viewer (off => browser does native text selection). */

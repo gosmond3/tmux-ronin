@@ -20,6 +20,7 @@ let active = null;
 const tiles = [];
 let compose = null; // the touch compose bar { bar, ta }
 let copySheet = null; // the copy panel { sheet, ta, open, close } — touch only
+let notePanel = null; // shared per-session note editor { open(session), close } — all devices
 let selectMode = false; // desktop Copy Mode: tmux mouse off so the browser selects natively
 let lastSelection = ''; // last non-empty terminal selection, kept so a live-TUI redraw
 // that clears the on-screen highlight can't lose the text before ⌘C reads it
@@ -111,6 +112,7 @@ class Tile {
         <span class="dot off" title="disconnected"></span>
         <select class="sess" title="Pick / switch session"></select>
         <span class="grow"></span>
+        <button class="note" title="Session note (post-it)">📝</button>
         <button class="rc" title="Reconnect">⟳</button>
         <button class="dc" title="Detach (stop viewing)">✕</button>
         <button class="kill" title="Kill session (ends it + its viewers)">🗑</button>
@@ -165,6 +167,9 @@ class Tile {
     this.el.querySelector('.rc').addEventListener('click', () => {
       if (this.session) this.connect(this.session);
     });
+    this.el.querySelector('.note').addEventListener('click', () => {
+      if (this.session && notePanel) notePanel.open(this.session);
+    });
     this.el.querySelector('.dc').addEventListener('click', () => this.detach());
     this.el.querySelector('.kill').addEventListener('click', () => this.kill());
 
@@ -193,6 +198,18 @@ class Tile {
     }
     this.select.add(new Option('➕ new session…', NEW));
     this.select.value = cur || '';
+    this.updateNoteBtn();
+  }
+
+  /** Reflect on the 📝 button whether this tile's session has a note (and disable when none). */
+  updateNoteBtn() {
+    const btn = this.el.querySelector('.note');
+    if (!btn) return;
+    const s = sessions.find((x) => x.name === this.session);
+    const has = !!(s && s.hasNote);
+    btn.classList.toggle('has-note', has);
+    btn.disabled = !this.session;
+    btn.title = !this.session ? 'Session note' : has ? 'Session note (has notes)' : 'Session note (empty)';
   }
 
   async onSelect() {
@@ -302,6 +319,7 @@ class Tile {
     }
     this.session = null;
     this.select.value = '';
+    this.updateNoteBtn();
     this.setDot('off');
     this.term.reset();
     this.writeBanner();
@@ -335,6 +353,7 @@ class Tile {
       this.select.add(new Option(session, session), this.select.options.length - 1);
     }
     this.select.value = session;
+    this.updateNoteBtn();
 
     if (this.ws) {
       try {
@@ -544,6 +563,81 @@ function buildCopySheet() {
   copySheet = { sheet, ta, open, close };
 }
 
+/**
+ * Per-session "post-it" note editor. One shared modal (a centered card on desktop,
+ * full-bleed on phones) that loads/saves the active tile's session note. The note lives
+ * on the tmux session itself (a user option) — no separate storage, gone when the session
+ * dies. Additive: it never touches terminal/copy behavior on any device.
+ */
+function buildNotePanel() {
+  const sheet = document.createElement('div');
+  sheet.id = 'notesheet';
+  const card = document.createElement('div');
+  card.className = 'ns-card';
+  const bar = document.createElement('div');
+  bar.className = 'ns-bar';
+  const title = document.createElement('span');
+  title.className = 'ns-title';
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = 'Save';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  bar.append(title, saveBtn, closeBtn);
+  const ta = document.createElement('textarea');
+  ta.placeholder = "What's this session working on?";
+  ta.spellcheck = false;
+  card.append(bar, ta);
+  sheet.appendChild(card);
+  document.body.appendChild(sheet);
+
+  let current = null; // session whose note is loaded
+  const close = () => {
+    sheet.classList.remove('open');
+    current = null;
+  };
+  const open = async (session) => {
+    if (!session) return;
+    current = session;
+    title.textContent = '📝 ' + session;
+    ta.value = '';
+    ta.disabled = true;
+    sheet.classList.add('open');
+    try {
+      const r = await fetch('/api/sessions/' + encodeURIComponent(session) + '/note');
+      const d = await r.json().catch(() => ({}));
+      if (current === session) ta.value = d.note || '';
+    } catch (_) {}
+    ta.disabled = false;
+    ta.focus();
+  };
+  saveBtn.addEventListener('click', async () => {
+    if (!current) return;
+    const session = current;
+    saveBtn.textContent = 'Saving…';
+    try {
+      await fetch('/api/sessions/' + encodeURIComponent(session) + '/note', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ note: ta.value }),
+      });
+      const s = sessions.find((x) => x.name === session);
+      if (s) s.hasNote = !!ta.value.trim();
+      tiles.forEach((t) => t.updateNoteBtn());
+    } catch (_) {}
+    saveBtn.textContent = 'Save';
+    close();
+  });
+  closeBtn.addEventListener('click', close);
+  // Click the backdrop (outside the card) or press Esc to dismiss.
+  sheet.addEventListener('pointerdown', (e) => {
+    if (e.target === sheet) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sheet.classList.contains('open')) close();
+  });
+  notePanel = { open, close };
+}
+
 /** Float the compose overlay just above the on-screen keyboard. */
 function positionCompose() {
   if (!compose) return;
@@ -587,6 +681,9 @@ function build() {
   key('k-bottom', () => {
     if (active) for (let i = 0; i < 40; i++) active.sendRaw(WHEEL_DOWN);
   });
+
+  // Per-session note editor (📝 on each tile head) — works the same on desktop and touch.
+  buildNotePanel();
 
   if (IS_TOUCH) {
     // Touch (iPhone/iPad): no precise pointer and the canvas can't be touch-selected,

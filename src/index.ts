@@ -17,6 +17,8 @@ import {
   cleanupViewers,
   isValidName,
   setMouse,
+  getNote,
+  setNote,
 } from './tmux.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -82,6 +84,27 @@ app.delete('/api/sessions/:name', async (req, res) => {
   if (!isValidName(name)) return res.status(400).json({ error: 'Invalid name.' });
   await killSessionTree(name);
   res.json({ ok: true });
+});
+
+// Per-session "post-it" note, stored on the tmux session itself (see tmux.ts).
+app.get('/api/sessions/:name/note', async (req, res) => {
+  const { name } = req.params;
+  if (!isValidName(name)) return res.status(400).json({ error: 'Invalid name.' });
+  if (!(await sessionExists(name))) return res.status(404).json({ error: 'No such session.' });
+  res.json({ note: await getNote(name) });
+});
+
+app.post('/api/sessions/:name/note', async (req, res) => {
+  const { name } = req.params;
+  if (!isValidName(name)) return res.status(400).json({ error: 'Invalid name.' });
+  if (!(await sessionExists(name))) return res.status(404).json({ error: 'No such session.' });
+  const note = String(req.body?.note ?? '').slice(0, 8000); // a post-it, not a doc
+  try {
+    await setNote(name, note);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String((e as Error)?.message ?? e) });
+  }
 });
 
 // --- HTTP + WebSocket server ---

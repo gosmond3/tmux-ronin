@@ -205,6 +205,12 @@ gated behind `IS_TOUCH`, so desktop is never affected:
 - **Phones default to one full-screen, edge-to-edge terminal** (layout 1); the grid
   layout buttons are hidden on phones. iPad keeps the grid.
 
+### Session notes (post-its)
+Each tile head has a **📝** button: a quick per-session note — jot what that session is
+working on so you don't lose track. The note is stored on the tmux session itself (a user
+option), so it needs no database and **vanishes when the session ends** — exactly like a
+post-it. The button lights up when a session has a note. Works the same on desktop and touch.
+
 ### Copy / paste
 Click **⧉ Copy** (top bar) to open a panel containing the visible terminal text in a real
 `<textarea>`. Select what you want and copy it **natively** — ⌘C/Ctrl-C on desktop,
