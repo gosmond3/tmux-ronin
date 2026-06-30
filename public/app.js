@@ -679,11 +679,14 @@ function build() {
   key('k-esc', () => active && active.sendRaw('\x1b'));
   key('k-int', () => active && active.sendRaw('\x03'));
   key('k-bottom', () => {
-    // Exit copy mode server-side => pane snaps to the live bottom. Wheel bursts only
-    // page partway through deep scrollback. Fall back to wheel if the ws is gone.
+    // Two ways scrollback happens: tmux copy mode (plain shells) or *inside* a
+    // full-screen TUI like Claude Code, which grabs the mouse so tmux never enters
+    // copy mode. Do both: {t:'bottom'} cancels tmux copy mode -> live bottom; the
+    // wheel-down burst drives an app's own scroll to the bottom. A wheel-down at the
+    // live bottom is a no-op, so running both is always safe.
     if (!active) return;
-    if (active.ws && active.ws.readyState === 1) active.send({ t: 'bottom' });
-    else for (let i = 0; i < 40; i++) active.sendRaw(WHEEL_DOWN);
+    active.send({ t: 'bottom' });
+    for (let i = 0; i < 150; i++) active.sendRaw(WHEEL_DOWN);
   });
 
   // Per-session note editor (📝 on each tile head) — works the same on desktop and touch.
