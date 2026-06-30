@@ -690,6 +690,23 @@ function build() {
     // so Copy pops the visible text into a real <textarea> panel to select & copy.
     buildCopySheet();
     key('copybtn', () => copySheet && copySheet.open());
+
+    // Touch-only keypad: ⋯ toggles a drop panel of keys the iOS keyboard can't send
+    // (Tab/⇧Tab + arrows) so you can drive TUIs like Claude Code. Stays open so you
+    // can fire several (e.g. arrow-navigate a menu); doesn't steal terminal focus.
+    const KEYPAD = { tab: '\t', stab: '\x1b[Z', up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
+    const more = document.getElementById('k-more');
+    const pad = document.getElementById('keypad');
+    if (more && pad) {
+      more.addEventListener('click', () => {
+        const open = pad.classList.toggle('open');
+        more.classList.toggle('armed', open);
+        more.setAttribute('aria-expanded', String(open));
+      });
+      pad.querySelectorAll('button[data-key]').forEach((b) => {
+        b.addEventListener('click', () => active && active.sendRaw(KEYPAD[b.dataset.key]));
+      });
+    }
   } else {
     // Desktop (Mac): Copy Mode is a real toggle. ON => tmux mouse OFF so a drag is a
     // native browser selection on the canvas (and the button lights up); OFF => mouse

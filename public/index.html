@@ -28,6 +28,7 @@
         <button id="k-esc" title="Esc">Esc</button>
         <button id="k-int" title="Ctrl-C (interrupt)">^C</button>
         <button id="k-bottom" title="Jump to latest output">⤓</button>
+        <button id="k-more" title="More keys" aria-expanded="false">⋯</button>
       </div>
       <div class="layouts" role="group" aria-label="Grid layout">
         <button data-layout="1" title="Single terminal">1</button>
@@ -36,6 +37,14 @@
       </div>
       <button id="refresh" title="Refresh session list">⟳</button>
     </header>
+    <div id="keypad" role="group" aria-label="More keys">
+      <button data-key="tab" title="Tab">Tab</button>
+      <button data-key="stab" title="Shift-Tab">⇧Tab</button>
+      <button data-key="up" title="Up">↑</button>
+      <button data-key="down" title="Down">↓</button>
+      <button data-key="left" title="Left">←</button>
+      <button data-key="right" title="Right">→</button>
+    </div>
     <main id="grid" class="layout-4" data-layout="4"></main>
 
     <script src="/vendor/xterm.js"></script>

@@ -430,7 +430,8 @@ body {
 /* ---- touch: control keys, floating type button, compose overlay (all hidden on desktop) ---- */
 .ctrls,
 #fab,
-#compose {
+#compose,
+#keypad {
   display: none;
 }
 @media (pointer: coarse) {
@@ -456,6 +457,37 @@ body {
     min-width: 34px;
     padding: 0 8px;
     font-size: 13px;
+  }
+  #k-more.armed {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+  /* expandable keypad: extra keys the iOS keyboard can't send (Tab/⇧Tab + arrows) */
+  #keypad {
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--line);
+  }
+  #keypad.open {
+    display: flex;
+  }
+  #keypad button {
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    height: 38px;
+    min-width: 46px;
+    padding: 0 12px;
+    font-size: 15px;
+  }
+  #keypad button:active {
+    background: var(--accent);
+    color: #000;
   }
   /* hide grid layout buttons on a phone — single terminal is the norm */
   .layouts {
