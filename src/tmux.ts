@@ -140,6 +140,15 @@ export async function setMouse(name: string, on: boolean): Promise<void> {
   await pexec('tmux', ['set-option', '-t', name, 'mouse', on ? 'on' : 'off']).catch(() => {});
 }
 
+/**
+ * Snap a viewer's pane to the live bottom. Wheel-scroll bursts only page partway when
+ * scrollback is deep; exiting copy mode always returns the pane to the live output.
+ * Harmless no-op (errors swallowed) if the pane isn't in copy mode.
+ */
+export async function jumpToBottom(name: string): Promise<void> {
+  await pexec('tmux', ['send-keys', '-t', name, '-X', 'cancel']).catch(() => {});
+}
+
 let viewerCounter = 0;
 
 /**

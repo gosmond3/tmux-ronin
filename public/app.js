@@ -679,7 +679,11 @@ function build() {
   key('k-esc', () => active && active.sendRaw('\x1b'));
   key('k-int', () => active && active.sendRaw('\x03'));
   key('k-bottom', () => {
-    if (active) for (let i = 0; i < 40; i++) active.sendRaw(WHEEL_DOWN);
+    // Exit copy mode server-side => pane snaps to the live bottom. Wheel bursts only
+    // page partway through deep scrollback. Fall back to wheel if the ws is gone.
+    if (!active) return;
+    if (active.ws && active.ws.readyState === 1) active.send({ t: 'bottom' });
+    else for (let i = 0; i < 40; i++) active.sendRaw(WHEEL_DOWN);
   });
 
   // Per-session note editor (📝 on each tile head) — works the same on desktop and touch.

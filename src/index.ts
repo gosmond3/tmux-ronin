@@ -17,6 +17,7 @@ import {
   cleanupViewers,
   isValidName,
   setMouse,
+  jumpToBottom,
   getNote,
   setNote,
 } from './tmux.js';
@@ -212,6 +213,9 @@ async function handlePty(ws: WebSocket, url: URL): Promise<void> {
       // Toggle tmux mouse on this viewer: off => browser does native text selection
       // (desktop Select mode for copy); on => tmux owns the mouse (wheel scroll).
       void setMouse(viewer, !!msg.on);
+    } else if (msg.t === 'bottom') {
+      // Jump to the live bottom by exiting copy mode (deep scrollback defeats wheel bursts).
+      void jumpToBottom(viewer);
     }
   });
 
