@@ -535,17 +535,23 @@ function buildCompose() {
   // Dictation fills this editable box (never auto-sends). Text lands WITHOUT focusing the
   // textarea, so no keyboard pops up unless you tap the box to edit a word.
   let dictBase = '';
+  let sending = false; // set by submit() so a still-listening recognizer can't refill the box
   const recognizer = makeRecognizer({
     onStart: () => {
       micBtn.classList.add('listening');
       dictBase = ta.value.trim();
     },
     onLive: (text) => {
+      if (sending) return; // Send already cleared the box — ignore trailing speech
       ta.value = (dictBase ? dictBase + ' ' : '') + text;
       autosize();
     },
     onDone: (finalText) => {
       micBtn.classList.remove('listening');
+      if (sending) {
+        sending = false; // consumed the trailing result; leave the (cleared) box alone
+        return;
+      }
       if (finalText) ta.value = (dictBase ? dictBase + ' ' : '') + finalText;
       autosize();
     },
@@ -563,6 +569,12 @@ function buildCompose() {
 
   const submit = () => {
     if (!active) return;
+    // If dictation is still listening, stop it and suppress its trailing result so it
+    // can't rewrite the box after we clear it (iOS keeps listening a beat after you talk).
+    if (recognizer && recognizer.listening) {
+      sending = true;
+      recognizer.toggle();
+    }
     if (ta.value) active.sendRaw(ta.value);
     // Send Enter as a SEPARATE, slightly-delayed keypress so TUIs (e.g. Claude Code)
     // treat it as a real submit, not a trailing newline inside pasted text.
