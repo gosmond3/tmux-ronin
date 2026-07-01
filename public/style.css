@@ -430,6 +430,7 @@ body {
 /* ---- touch: control keys, floating type button, compose overlay (all hidden on desktop) ---- */
 .ctrls,
 #fab,
+#mic,
 #compose,
 #keypad {
   display: none;
@@ -512,6 +513,32 @@ body {
     z-index: 20;
   }
   #fab.hidden {
+    display: none;
+  }
+  /* dictation mic — stacked just above the ⌨ button, same size/shape */
+  #mic {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    right: 14px;
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    font-size: 22px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+    z-index: 20;
+  }
+  #mic.listening {
+    background: #c0392b;
+    color: #fff;
+    border-color: #c0392b;
+  }
+  #mic.hidden {
     display: none;
   }
   /* compose overlay — floats above the keyboard, over the terminal */

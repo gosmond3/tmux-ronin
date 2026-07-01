@@ -470,6 +470,7 @@ function buildCompose() {
   const open = () => {
     bar.classList.add('open');
     fab.classList.add('hidden');
+    document.getElementById('mic')?.classList.add('hidden'); // don't float over the compose bar
     positionCompose();
     ta.focus();
     autosize();
@@ -477,6 +478,7 @@ function buildCompose() {
   const hide = () => {
     bar.classList.remove('open');
     fab.classList.remove('hidden');
+    document.getElementById('mic')?.classList.remove('hidden');
     ta.blur();
   };
 
@@ -502,6 +504,82 @@ function buildCompose() {
 
   document.body.append(fab, bar);
   compose = { bar, ta, open, hide };
+}
+
+/**
+ * TOUCH: a dictation button — the iPhone's *keyboard* dictation can't be triggered from
+ * JS (it only exists while the keyboard is up, which is what we're avoiding). The Web
+ * Speech API is a separate engine that listens with NO keyboard, so a floating mic can
+ * capture speech and drop it into the terminal. Tap to listen; it auto-stops on a pause
+ * and submits the transcript (text + delayed \r, same as compose). Tap while listening to
+ * cancel. Needs a secure context (the https URL) + mic permission. Hidden if unsupported.
+ */
+function buildDictation() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return; // older iOS / no engine -> don't show a button that can't work
+
+  const mic = document.createElement('button');
+  mic.id = 'mic';
+  mic.textContent = '🎤';
+  mic.title = 'Dictate';
+  document.body.appendChild(mic);
+
+  let rec = null;
+  let listening = false;
+  let cancelled = false;
+  let text = '';
+
+  const reset = () => {
+    listening = false;
+    mic.classList.remove('listening');
+    mic.textContent = '🎤';
+    rec = null;
+  };
+
+  mic.addEventListener('click', () => {
+    if (listening) {
+      cancelled = true; // manual tap = cancel, don't submit a half-heard phrase
+      try {
+        rec.abort();
+      } catch {
+        reset();
+      }
+      return;
+    }
+    if (!active) return;
+    text = '';
+    cancelled = false;
+    rec = new SR();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.continuous = false; // one utterance, ends on a natural pause
+    rec.onstart = () => {
+      listening = true;
+      mic.classList.add('listening');
+      mic.textContent = '⏹';
+    };
+    rec.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) text += e.results[i][0].transcript;
+      }
+    };
+    rec.onerror = reset; // not-allowed (no https/permission) / no-speech -> quietly reset
+    rec.onend = () => {
+      const said = text.trim();
+      reset();
+      if (!cancelled && said && active) {
+        active.sendRaw(said);
+        // Separate, slightly-delayed Enter so TUIs like Claude Code treat it as a real
+        // submit (same trick as the compose bar).
+        setTimeout(() => active && active.sendRaw('\r'), 40);
+      }
+    };
+    try {
+      rec.start();
+    } catch {
+      reset();
+    }
+  });
 }
 
 /** All visible terminal text (the alt-screen buffer under tmux), trailing blanks trimmed. */
@@ -762,6 +840,7 @@ async function init() {
   build();
   if (IS_TOUCH) {
     buildCompose();
+    buildDictation();
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', positionCompose);
       window.visualViewport.addEventListener('scroll', positionCompose);
