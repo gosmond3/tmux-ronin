@@ -597,6 +597,21 @@ body {
     border-radius: 8px;
     font-size: 15px;
   }
+  #compose button.mic {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    background: var(--panel);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 18px;
+  }
+  #compose button.mic.listening {
+    background: #c0392b;
+    color: #fff;
+    border-color: #c0392b;
+  }
 }
 
 /* ---- mobile: single terminal fills the screen; 2/4 stack in a scroll column ---- */

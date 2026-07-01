@@ -420,10 +420,78 @@ class Tile {
   }
 }
 
+// Safari's Web Speech engine (Apple's native dictation, no server). Absent in non-Safari
+// iOS browsers, so everything that uses it feature-detects and hides gracefully.
+const SPEECH = window.SpeechRecognition || window.webkitSpeechRecognition;
+
 /**
- * TOUCH: a compose bar — a real native textarea where you type / dictate (Wispr Flow) /
- * paste, then Enter or Send writes the whole line into the active terminal and runs it.
- * Far easier than poking at xterm's hidden textarea on a phone, and paste/dictation work.
+ * Wrap one Web Speech recognition session. onLive gets the running transcript (finalized
+ * words + current interim) as you speak; onDone gets the final trimmed text ('' if empty
+ * or cancelled). Tap-to-cancel via toggle() while listening. Returns null if unsupported.
+ */
+function makeRecognizer({ onStart, onLive, onDone }) {
+  if (!SPEECH) return null;
+  let rec = null;
+  let listening = false;
+  let cancelled = false;
+  let finalText = '';
+  return {
+    get listening() {
+      return listening;
+    },
+    toggle() {
+      if (listening) {
+        cancelled = true; // manual tap = cancel
+        try {
+          rec.abort();
+        } catch {
+          /* onend still fires */
+        }
+        return;
+      }
+      finalText = '';
+      cancelled = false;
+      rec = new SPEECH();
+      rec.lang = 'en-US';
+      rec.interimResults = true;
+      rec.continuous = false; // one utterance, ends on a natural pause
+      rec.onstart = () => {
+        listening = true;
+        onStart && onStart();
+      };
+      rec.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalText += t;
+          else interim += t;
+        }
+        onLive && onLive((finalText + ' ' + interim).trim());
+      };
+      rec.onerror = () => {
+        cancelled = true;
+      };
+      rec.onend = () => {
+        listening = false;
+        rec = null;
+        onDone && onDone(cancelled ? '' : finalText.trim());
+      };
+      try {
+        rec.start();
+      } catch {
+        listening = false;
+        rec = null;
+        onDone && onDone('');
+      }
+    },
+  };
+}
+
+/**
+ * TOUCH: a compose bar — a real native textarea where you type / dictate / paste, then
+ * Enter or Send writes the whole line into the active terminal and runs it. The 🎤 button
+ * dictates into this same editable box (Safari), so you review/fix before Send. Far easier
+ * than poking at xterm's hidden textarea on a phone, and paste/dictation work.
  */
 function buildCompose() {
   // Floating "type" button — opens the compose overlay. Hidden while it's open.
@@ -446,18 +514,53 @@ function buildCompose() {
   ta.setAttribute('enterkeyhint', 'send');
   ta.setAttribute('data-1p-ignore', ''); // suppress password-manager / autofill prompts
   ta.setAttribute('data-lpignore', 'true');
+  const micBtn = document.createElement('button');
+  micBtn.className = 'mic';
+  micBtn.type = 'button';
+  micBtn.textContent = '🎤';
+  micBtn.title = 'Dictate';
   const sendBtn = document.createElement('button');
   sendBtn.className = 'send';
   sendBtn.textContent = 'Send';
   const closeBtn = document.createElement('button');
   closeBtn.className = 'close';
   closeBtn.textContent = '✕';
-  bar.append(ta, sendBtn, closeBtn);
+  bar.append(ta, micBtn, sendBtn, closeBtn);
 
   const autosize = () => {
     ta.style.height = 'auto';
     ta.style.height = Math.min(120, ta.scrollHeight) + 'px';
   };
+
+  // Dictation fills this editable box (never auto-sends). Text lands WITHOUT focusing the
+  // textarea, so no keyboard pops up unless you tap the box to edit a word.
+  let dictBase = '';
+  const recognizer = makeRecognizer({
+    onStart: () => {
+      micBtn.classList.add('listening');
+      dictBase = ta.value.trim();
+    },
+    onLive: (text) => {
+      ta.value = (dictBase ? dictBase + ' ' : '') + text;
+      autosize();
+    },
+    onDone: (finalText) => {
+      micBtn.classList.remove('listening');
+      if (finalText) ta.value = (dictBase ? dictBase + ' ' : '') + finalText;
+      autosize();
+    },
+  });
+  const startDictation = () => recognizer && !recognizer.listening && recognizer.toggle();
+  if (recognizer) {
+    micBtn.addEventListener('pointerdown', (e) => e.preventDefault()); // don't steal focus / pop keyboard
+    micBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      recognizer.toggle();
+    });
+  } else {
+    micBtn.style.display = 'none'; // no Web Speech (non-Safari) -> hide the in-bar mic
+  }
+
   const submit = () => {
     if (!active) return;
     if (ta.value) active.sendRaw(ta.value);
@@ -467,22 +570,23 @@ function buildCompose() {
     ta.value = '';
     autosize();
   };
-  const open = () => {
+  const open = (focus = true) => {
     bar.classList.add('open');
     fab.classList.add('hidden');
     document.getElementById('mic')?.classList.add('hidden'); // don't float over the compose bar
     positionCompose();
-    ta.focus();
+    if (focus) ta.focus(); // dictation opens with focus=false so no keyboard pops up
     autosize();
   };
   const hide = () => {
+    if (recognizer && recognizer.listening) recognizer.toggle(); // cancel dictation on close
     bar.classList.remove('open');
     fab.classList.remove('hidden');
     document.getElementById('mic')?.classList.remove('hidden');
     ta.blur();
   };
 
-  fab.addEventListener('click', open);
+  fab.addEventListener('click', () => open());
   ta.addEventListener('input', autosize);
   ta.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -503,20 +607,17 @@ function buildCompose() {
   });
 
   document.body.append(fab, bar);
-  compose = { bar, ta, open, hide };
+  compose = { bar, ta, open, hide, startDictation };
 }
 
 /**
- * TOUCH: a dictation button — the iPhone's *keyboard* dictation can't be triggered from
- * JS (it only exists while the keyboard is up, which is what we're avoiding). The Web
- * Speech API is a separate engine that listens with NO keyboard, so a floating mic can
- * capture speech and drop it into the terminal. Tap to listen; it auto-stops on a pause
- * and submits the transcript (text + delayed \r, same as compose). Tap while listening to
- * cancel. Needs a secure context (the https URL) + mic permission. Hidden if unsupported.
+ * TOUCH: floating mic. Apple's native dictation (Web Speech) is good and needs no server,
+ * but it only exists in Safari. Tapping opens the compose box WITHOUT popping the keyboard
+ * and dictates into it — the transcript is editable, so you review/fix, then Send. Hidden
+ * where Web Speech is unavailable (non-Safari iOS browsers). Needs mic permission (https).
  */
 function buildDictation() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return; // older iOS / no engine -> don't show a button that can't work
+  if (!SPEECH) return; // no engine -> don't show a button that can't work
 
   const mic = document.createElement('button');
   mic.id = 'mic';
@@ -524,61 +625,10 @@ function buildDictation() {
   mic.title = 'Dictate';
   document.body.appendChild(mic);
 
-  let rec = null;
-  let listening = false;
-  let cancelled = false;
-  let text = '';
-
-  const reset = () => {
-    listening = false;
-    mic.classList.remove('listening');
-    mic.textContent = '🎤';
-    rec = null;
-  };
-
   mic.addEventListener('click', () => {
-    if (listening) {
-      cancelled = true; // manual tap = cancel, don't submit a half-heard phrase
-      try {
-        rec.abort();
-      } catch {
-        reset();
-      }
-      return;
-    }
-    if (!active) return;
-    text = '';
-    cancelled = false;
-    rec = new SR();
-    rec.lang = 'en-US';
-    rec.interimResults = false;
-    rec.continuous = false; // one utterance, ends on a natural pause
-    rec.onstart = () => {
-      listening = true;
-      mic.classList.add('listening');
-      mic.textContent = '⏹';
-    };
-    rec.onresult = (e) => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) text += e.results[i][0].transcript;
-      }
-    };
-    rec.onerror = reset; // not-allowed (no https/permission) / no-speech -> quietly reset
-    rec.onend = () => {
-      const said = text.trim();
-      reset();
-      if (!cancelled && said && active) {
-        active.sendRaw(said);
-        // Separate, slightly-delayed Enter so TUIs like Claude Code treat it as a real
-        // submit (same trick as the compose bar).
-        setTimeout(() => active && active.sendRaw('\r'), 40);
-      }
-    };
-    try {
-      rec.start();
-    } catch {
-      reset();
-    }
+    if (!active || !compose) return;
+    compose.open(false); // show the compose box, don't focus (no keyboard)
+    compose.startDictation(); // begin listening; text fills the editable box
   });
 }
 
