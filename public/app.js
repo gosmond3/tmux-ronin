@@ -609,8 +609,12 @@ function buildCompose() {
   sendBtn.addEventListener('pointerdown', (e) => e.preventDefault()); // keep keyboard up
   sendBtn.addEventListener('click', (e) => {
     e.preventDefault();
+    // Keep the keyboard up only if you were actually typing; on a voice send (no keyboard)
+    // don't pop it — just close the box so you drop straight back to the terminal.
+    const typing = document.activeElement === ta;
     submit();
-    ta.focus();
+    if (typing) ta.focus();
+    else hide();
   });
   closeBtn.addEventListener('pointerdown', (e) => e.preventDefault());
   closeBtn.addEventListener('click', (e) => {
