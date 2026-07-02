@@ -425,64 +425,78 @@ class Tile {
 const SPEECH = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 /**
- * Wrap one Web Speech recognition session. onLive gets the running transcript (finalized
- * words + current interim) as you speak; onDone gets the final trimmed text ('' if empty
- * or cancelled). Tap-to-cancel via toggle() while listening. Returns null if unsupported.
+ * Wrap a Web Speech dictation SESSION that stays on until you tap it off (not until you
+ * pause). Safari's engine ends on a natural pause, so we run it continuous and, whenever it
+ * ends on its own while the session is still active, silently restart it — only a manual
+ * toggle() (or a fatal permission error) actually ends the session. onLive gets the running
+ * transcript (finalized words + interim); onStart fires once when the session begins; onDone
+ * fires once when it ends, with the final trimmed text. Returns null if unsupported.
  */
 function makeRecognizer({ onStart, onLive, onDone }) {
   if (!SPEECH) return null;
   let rec = null;
-  let listening = false;
-  let cancelled = false;
+  let active = false; // session is on (survives auto-ends)
+  let stopped = false; // user tapped off, or a fatal error
   let finalText = '';
+
+  const startInstance = () => {
+    rec = new SPEECH();
+    rec.lang = 'en-US';
+    rec.interimResults = true;
+    rec.continuous = true; // iOS still ends on a pause; onend restarts us
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalText += t;
+        else interim += t;
+      }
+      onLive && onLive((finalText + ' ' + interim).trim());
+    };
+    rec.onerror = (ev) => {
+      // no-speech/aborted are normal (we just restart); mic denial ends the session
+      if (ev && (ev.error === 'not-allowed' || ev.error === 'service-not-allowed')) stopped = true;
+    };
+    rec.onend = () => {
+      rec = null;
+      if (active && !stopped) {
+        startInstance(); // auto-ended on a pause — keep the session alive
+        return;
+      }
+      active = false;
+      onDone && onDone(finalText.trim());
+    };
+    try {
+      rec.start();
+    } catch {
+      // e.g. start() raced a prior instance's teardown; onend will restart if still active
+    }
+  };
+
   return {
     get listening() {
-      return listening;
+      return active;
     },
     toggle() {
-      if (listening) {
-        cancelled = true; // manual tap = cancel
-        try {
-          rec.abort();
-        } catch {
-          /* onend still fires */
+      if (active) {
+        stopped = true; // manual off — stop for real
+        if (rec) {
+          try {
+            rec.stop(); // onend fires -> onDone
+          } catch {
+            /* onend still fires */
+          }
+        } else {
+          active = false; // no live instance to end -> finish now
+          onDone && onDone(finalText.trim());
         }
         return;
       }
       finalText = '';
-      cancelled = false;
-      rec = new SPEECH();
-      rec.lang = 'en-US';
-      rec.interimResults = true;
-      rec.continuous = false; // one utterance, ends on a natural pause
-      rec.onstart = () => {
-        listening = true;
-        onStart && onStart();
-      };
-      rec.onresult = (e) => {
-        let interim = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const t = e.results[i][0].transcript;
-          if (e.results[i].isFinal) finalText += t;
-          else interim += t;
-        }
-        onLive && onLive((finalText + ' ' + interim).trim());
-      };
-      rec.onerror = () => {
-        cancelled = true;
-      };
-      rec.onend = () => {
-        listening = false;
-        rec = null;
-        onDone && onDone(cancelled ? '' : finalText.trim());
-      };
-      try {
-        rec.start();
-      } catch {
-        listening = false;
-        rec = null;
-        onDone && onDone('');
-      }
+      stopped = false;
+      active = true;
+      onStart && onStart();
+      startInstance();
     },
   };
 }
