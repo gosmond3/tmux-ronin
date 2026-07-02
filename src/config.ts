@@ -29,6 +29,11 @@ export const config = {
   mouse: process.env.TMUX_MOUSE?.trim() || 'on',
   /** Internal grouped "viewer" sessions get this prefix; hidden from the picker. */
   viewerPrefix: 'grid_',
+  /**
+   * Desktop push-to-talk dictation proxies audio to the dohyo whisper service
+   * (podcast-scribe's POST /transcribe). Empty string disables the feature.
+   */
+  scribeUrl: process.env.SCRIBE_URL?.trim() ?? 'http://127.0.0.1:3004',
 } as const;
 
 export const authEnabled = Boolean(config.user && config.pass);

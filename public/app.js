@@ -648,6 +648,94 @@ function buildDictation() {
   });
 }
 
+/**
+ * DESKTOP: hold-to-talk dictation (like the Mac FN key). Press & hold 🎤 to record from
+ * the browser mic; on release the clip goes to /api/transcribe (proxied to the dohyo
+ * Whisper), and the transcript is typed into the active terminal at the cursor — no auto
+ * Enter, so you review and submit yourself. Records audio ourselves (not Apple's engine),
+ * so it works in Chrome and Safari; audio stays on dohyo. Needs mic permission (https url).
+ */
+function buildPushToTalk() {
+  const btn = document.getElementById('ptt');
+  if (!btn) return;
+  let recording = false;
+  let media = null; // { recorder, stream }
+
+  const setState = (s) => {
+    btn.classList.toggle('rec', s === 'rec');
+    btn.classList.toggle('busy', s === 'busy');
+    btn.textContent = s === 'busy' ? '…' : '🎤';
+  };
+
+  const transcribe = async (blob) => {
+    setState('busy');
+    try {
+      const r = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type || 'audio/webm' },
+        body: blob,
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.text && active) active.sendRaw(data.text);
+      else if (!r.ok) btn.title = `Dictation failed (${data.error || r.status})`;
+    } catch {
+      btn.title = 'Dictation failed (network)';
+    }
+    setState('idle');
+  };
+
+  const start = async () => {
+    if (recording || btn.classList.contains('busy') || !active) return;
+    recording = true;
+    setState('rec');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!recording) {
+        // released before the mic opened — drop it
+        stream.getTracks().forEach((t) => t.stop());
+        setState('idle');
+        return;
+      }
+      const chunks = [];
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+        if (blob.size) transcribe(blob);
+        else setState('idle');
+      };
+      media = { recorder, stream };
+      recorder.start();
+    } catch {
+      // no mic / not a secure context (needs the https url) / permission denied
+      recording = false;
+      setState('idle');
+      btn.title = 'Mic blocked — open Ronin over the https url and allow the microphone';
+    }
+  };
+
+  const stop = () => {
+    if (!recording) return;
+    recording = false;
+    if (media && media.recorder && media.recorder.state !== 'inactive') media.recorder.stop();
+    else setState('idle');
+    media = null;
+  };
+
+  btn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    try {
+      btn.setPointerCapture(e.pointerId); // keep receiving events if the cursor slides off
+    } catch {
+      /* ignore */
+    }
+    start();
+  });
+  btn.addEventListener('pointerup', stop);
+  btn.addEventListener('pointercancel', stop);
+}
+
 /** All visible terminal text (the alt-screen buffer under tmux), trailing blanks trimmed. */
 function terminalText(term) {
   const buf = term.buffer.active;
@@ -859,6 +947,8 @@ function build() {
       });
     }
   } else {
+    // Desktop (Mac): hold-to-talk dictation via the dohyo Whisper service.
+    buildPushToTalk();
     // Desktop (Mac): Copy Mode is a real toggle. ON => tmux mouse OFF so a drag is a
     // native browser selection on the canvas (and the button lights up); OFF => mouse
     // back ON for normal terminal use (wheel scroll). The screen is never covered.

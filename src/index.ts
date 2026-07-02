@@ -54,7 +54,31 @@ app.get('/vendor/addon-fit.js', (_req, res) => res.sendFile(path.join(NM, '@xter
 app.use(express.static(PUBLIC));
 
 // --- REST API ---
-app.get('/api/health', (_req, res) => res.json({ ok: true, auth: authEnabled }));
+app.get('/api/health', (_req, res) =>
+  res.json({ ok: true, auth: authEnabled, transcribe: Boolean(config.scribeUrl) }),
+);
+
+// Desktop push-to-talk: the browser records a clip and POSTs the raw audio here; we relay
+// it to the dohyo whisper service and return the transcript. Kept server-side so the phone
+// path is untouched and the scribe stays internal to dohyo.
+app.post('/api/transcribe', express.raw({ type: () => true, limit: '25mb' }), async (req, res) => {
+  if (!config.scribeUrl) return res.status(503).json({ error: 'transcription not configured' });
+  const audio = req.body as Buffer;
+  if (!Buffer.isBuffer(audio) || audio.length === 0) return res.status(400).json({ error: 'no audio' });
+  try {
+    const r = await fetch(`${config.scribeUrl}/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': req.headers['content-type'] ?? 'audio/webm' },
+      // Node/undici accepts a Buffer body at runtime; cast past the DOM BodyInit typing.
+      body: audio as unknown as BodyInit,
+    });
+    if (!r.ok) return res.status(502).json({ error: `scribe ${r.status}` });
+    const data = (await r.json()) as { text?: string };
+    res.json({ text: data.text ?? '' });
+  } catch (e) {
+    res.status(500).json({ error: String((e as Error)?.message ?? e) });
+  }
+});
 
 app.get('/api/sessions', async (_req, res) => {
   try {

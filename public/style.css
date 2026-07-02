@@ -91,6 +91,31 @@ body {
   color: #000;
   border-color: var(--accent);
 }
+/* Push-to-talk dictation — desktop only (hold to record -> dohyo Whisper) */
+#ptt {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  min-width: 34px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+#ptt.rec {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+#ptt.busy {
+  opacity: 0.6;
+  cursor: default;
+}
 /* "?" help popover next to Copy Mode (desktop only) */
 .copywrap {
   position: relative;
@@ -157,6 +182,9 @@ body {
 }
 @media (hover: hover) and (pointer: fine) {
   #selmode {
+    display: inline-flex;
+  }
+  #ptt {
     display: inline-flex;
   }
 }
