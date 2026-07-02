@@ -649,11 +649,11 @@ function buildDictation() {
 }
 
 /**
- * DESKTOP: hold-to-talk dictation (like the Mac FN key). Press & hold 🎤 to record from
- * the browser mic; on release the clip goes to /api/transcribe (proxied to the dohyo
- * Whisper), and the transcript is typed into the active terminal at the cursor — no auto
- * Enter, so you review and submit yourself. Records audio ourselves (not Apple's engine),
- * so it works in Chrome and Safari; audio stays on dohyo. Needs mic permission (https url).
+ * DESKTOP: tap-to-talk dictation. Click 🎤 to start recording (button goes red), click
+ * again to stop; the clip goes to /api/transcribe (proxied to the dohyo Whisper) and the
+ * transcript is typed into the active terminal at the cursor — no auto Enter, so you review
+ * and submit yourself. Records audio ourselves (not Apple's engine), so it works in Chrome
+ * and Safari; audio stays on dohyo. Needs mic permission (https url).
  */
 function buildPushToTalk() {
   const btn = document.getElementById('ptt');
@@ -723,17 +723,11 @@ function buildPushToTalk() {
     media = null;
   };
 
-  btn.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    try {
-      btn.setPointerCapture(e.pointerId); // keep receiving events if the cursor slides off
-    } catch {
-      /* ignore */
-    }
-    start();
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('busy')) return; // ignore clicks while transcribing
+    if (recording) stop();
+    else start();
   });
-  btn.addEventListener('pointerup', stop);
-  btn.addEventListener('pointercancel', stop);
 }
 
 /** All visible terminal text (the alt-screen buffer under tmux), trailing blanks trimmed. */
