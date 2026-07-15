@@ -69,7 +69,19 @@ export async function sessionExists(name: string): Promise<boolean> {
 }
 
 export async function createSession(name: string): Promise<void> {
-  await pexec('tmux', ['new-session', '-d', '-s', name]);
+  const args = ['new-session', '-d', '-s', name];
+  if (config.newSessionDir) args.push('-c', config.newSessionDir);
+  try {
+    await pexec('tmux', args);
+  } catch (err) {
+    // A missing/inaccessible start-directory makes new-session fail; retry
+    // without -c so session creation still works (falls back to ronin's cwd).
+    if (config.newSessionDir) {
+      await pexec('tmux', ['new-session', '-d', '-s', name]);
+    } else {
+      throw err;
+    }
+  }
 }
 
 export async function killSession(name: string): Promise<void> {

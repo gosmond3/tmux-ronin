@@ -30,6 +30,11 @@ export const config = {
   /** Internal grouped "viewer" sessions get this prefix; hidden from the picker. */
   viewerPrefix: 'grid_',
   /**
+   * Working directory for sessions created from the picker. Without this, a new
+   * session inherits ronin's own cwd (~/tmux-ronin). Override with RONIN_NEW_SESSION_DIR.
+   */
+  newSessionDir: process.env.RONIN_NEW_SESSION_DIR?.trim() || `${process.env.HOME}/sumo_claw/kojin`,
+  /**
    * Desktop push-to-talk dictation proxies audio to the dohyo whisper service
    * (podcast-scribe's POST /transcribe). Empty string disables the feature.
    */
