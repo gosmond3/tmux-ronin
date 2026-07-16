@@ -911,25 +911,6 @@ function build() {
   });
   document.getElementById('refresh').addEventListener('click', fetchSessions);
   window.addEventListener('resize', () => tiles.forEach((t) => t.doFit()));
-  // Desktop: Ctrl+Alt+1..4 focuses tile 1..4 — map an external keypad's M1..M4 to
-  // these. Uses e.code (physical key) so it works from the digit row or numpad, and
-  // survives Mac's Option-remapped e.key (Option+1 => '¡'). Only visible tiles respond.
-  if (!IS_TOUCH) {
-    document.addEventListener(
-      'keydown',
-      (e) => {
-        if (!e.ctrlKey || !e.altKey || e.metaKey || e.shiftKey) return;
-        const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code);
-        if (!m) return;
-        const t = tiles[Number(m[1]) - 1];
-        if (!t || t.el.style.display === 'none') return;
-        t.focusTerminal();
-        e.preventDefault();
-        e.stopPropagation();
-      },
-      true, // capture: beat xterm's own keydown so the chord never reaches the pty
-    );
-  }
   // Top-bar control keys (sent to the active terminal).
   const key = (id, fn) => {
     const b = document.getElementById(id);
