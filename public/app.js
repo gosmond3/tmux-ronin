@@ -14,6 +14,10 @@ const IS_TOUCH = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart
 // scrollback (verified: enters copy-mode, scroll_position advances).
 const WHEEL_UP = '\x1b[<64;1;1M';
 const WHEEL_DOWN = '\x1b[<65;1;1M';
+// Desktop: rows scrolled per wheel notch. A notchy mouse/keypad wheel emits one
+// event per click, which tmux scrolls one row — too slow. Amplify it. (Trackpads
+// send many tiny pixel deltas and are left alone; see setupWheelScroll.)
+const WHEEL_LINES = 10;
 
 let sessions = []; // [{name, windows, attached, created}]
 let active = null;
@@ -155,6 +159,7 @@ class Tile {
     } else {
       // Desktop: click focuses the terminal. Works great — left untouched.
       this.body.addEventListener('pointerdown', () => this.focusTerminal());
+      this.setupWheelScroll();
     }
     // Marking a tile active on header focus, without stealing keyboard focus —
     // otherwise iOS closes the <select> picker the instant it opens.
@@ -250,6 +255,32 @@ class Tile {
   /** Write a raw string to the pty (used for injected wheel sequences). */
   sendRaw(d) {
     this.send({ t: 'i', d });
+  }
+
+  /**
+   * DESKTOP ONLY: amplify wheel scrolling — one notch of a mouse/keypad wheel
+   * scrolls WHEEL_LINES rows instead of one. We intercept the wheel and inject the
+   * same SGR sequences the buttons use, so it's just tmux's normal scroll ×N.
+   * Trackpads (small pixel deltas) are passed straight through to xterm so their
+   * native smooth scroll is unchanged; only discrete notches are amplified. Skipped
+   * while desktop Copy Mode is on (tmux mouse is off then — let xterm scroll itself).
+   */
+  setupWheelScroll() {
+    this.body.addEventListener(
+      'wheel',
+      (e) => {
+        if (selectMode || !e.deltaY) return;
+        // A notchy wheel reports line-mode or a large per-event delta; a trackpad
+        // sends a stream of small pixel deltas. Only amplify the former.
+        const isNotch = e.deltaMode !== 0 || Math.abs(e.deltaY) >= 40;
+        if (!isNotch) return;
+        const seq = e.deltaY < 0 ? WHEEL_UP : WHEEL_DOWN; // up = older lines
+        for (let i = 0; i < WHEEL_LINES; i++) this.sendRaw(seq);
+        e.preventDefault();
+        e.stopPropagation();
+      },
+      { passive: false, capture: true },
+    );
   }
 
   /** TOUCH ONLY: one-finger drag over the terminal scrolls the tmux scrollback. */
