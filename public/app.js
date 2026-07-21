@@ -968,7 +968,7 @@ function build() {
     // Touch-only keypad: ⋯ toggles a drop panel of keys the iOS keyboard can't send
     // (Tab/⇧Tab + arrows) so you can drive TUIs like Claude Code. Stays open so you
     // can fire several (e.g. arrow-navigate a menu); doesn't steal terminal focus.
-    const KEYPAD = { tab: '\t', stab: '\x1b[Z', up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
+    const KEYPAD = { cr: '\r', tab: '\t', stab: '\x1b[Z', up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
     const more = document.getElementById('k-more');
     const pad = document.getElementById('keypad');
     if (more && pad) {
