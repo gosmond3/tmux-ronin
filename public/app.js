@@ -68,7 +68,7 @@ function loadState() {
 /* ---------- server calls ---------- */
 async function fetchSessions() {
   try {
-    const r = await fetch('/api/sessions');
+    const r = await fetch('/api/sessions', { cache: 'no-store' });
     sessions = await r.json();
     if (!Array.isArray(sessions)) sessions = [];
   } catch (_) {
@@ -910,6 +910,13 @@ function build() {
     b.addEventListener('click', () => setLayout(Number(b.dataset.layout)));
   });
   document.getElementById('refresh').addEventListener('click', fetchSessions);
+  // Resumed tab (esp. mobile — a backgrounded page can live for days): re-fetch the list.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') fetchSessions();
+  });
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) fetchSessions(); // restored from bfcache
+  });
   window.addEventListener('resize', () => tiles.forEach((t) => t.doFit()));
   // Desktop: Ctrl+Alt+1..4 focuses tile 1..4 (top-left, top-right, bottom-left,
   // bottom-right in the 2x2 grid). Uses e.code (physical key) so it fires from the

@@ -54,6 +54,12 @@ app.get('/vendor/addon-fit.js', (_req, res) => res.sendFile(path.join(NM, '@xter
 app.use(express.static(PUBLIC));
 
 // --- REST API ---
+// iOS Safari caches ETag-only fetch responses and serves them stale; API data must never cache.
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 app.get('/api/health', (_req, res) =>
   res.json({ ok: true, auth: authEnabled, transcribe: Boolean(config.scribeUrl) }),
 );
